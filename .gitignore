@@ -1,4 +1,5 @@
 reference/
+spec.md
 node_modules/
 dist/
 .env
