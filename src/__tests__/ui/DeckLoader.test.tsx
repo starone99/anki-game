@@ -1,0 +1,170 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { DeckLoader } from '../../components/DeckLoader'
+import type { GameConfig } from '../../types'
+
+// parseApkg를 mock — 실제 파일 파싱은 parser 테스트에서 검증
+vi.mock('../../lib/parser', () => ({
+  parseApkg: vi.fn().mockResolvedValue([
+    { word: '食べる', reading: 'たべる', meanings: ['먹다'] },
+    { word: '飲む', reading: 'のむ', meanings: ['마시다'] },
+  ]),
+}))
+
+describe('DeckLoader — 렌더링', () => {
+  it('파일 드롭존이 렌더링된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    expect(screen.getByTestId('dropzone')).toBeInTheDocument()
+  })
+
+  it('내장 덱 버튼 3개가 렌더링된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    expect(screen.getByText('히라가나')).toBeInTheDocument()
+    expect(screen.getByText('가타카나')).toBeInTheDocument()
+    expect(screen.getByText('히라가나 + 가타카나')).toBeInTheDocument()
+  })
+
+  it('입력 모드 선택 옵션 4개가 렌더링된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    expect(screen.getByText('로마자')).toBeInTheDocument()
+    expect(screen.getByText('한국어 발음')).toBeInTheDocument()
+    expect(screen.getByText('히라가나')).toBeInTheDocument()
+    expect(screen.getByText('의미')).toBeInTheDocument()
+  })
+
+  it('세션 크기 슬라이더가 기본값 20으로 렌더링된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const slider = screen.getByRole('slider', { name: /세션 크기/i })
+    expect(slider).toHaveValue('20')
+  })
+
+  it('난이도 선택 옵션 3개가 렌더링된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    expect(screen.getByText('쉬움')).toBeInTheDocument()
+    expect(screen.getByText('보통')).toBeInTheDocument()
+    expect(screen.getByText('어려움')).toBeInTheDocument()
+  })
+
+  it('덱 로드 전에는 시작 버튼이 비활성화된다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /시작/i })).toBeDisabled()
+  })
+})
+
+describe('DeckLoader — 파일 드롭', () => {
+  it('.apkg 파일을 드롭하면 카드 수가 표시된다', async () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const dropzone = screen.getByTestId('dropzone')
+    const file = new File(['dummy'], 'test.apkg', { type: 'application/octet-stream' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/2장/)).toBeInTheDocument()
+    })
+  })
+
+  it('파일 드롭 후 시작 버튼이 활성화된다', async () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const dropzone = screen.getByTestId('dropzone')
+    const file = new File(['dummy'], 'test.apkg', { type: 'application/octet-stream' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /시작/i })).toBeEnabled()
+    })
+  })
+
+  it('.apkg가 아닌 파일은 에러 메시지를 표시한다', async () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const dropzone = screen.getByTestId('dropzone')
+    const file = new File(['dummy'], 'test.txt', { type: 'text/plain' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/.apkg 파일만 지원/i)).toBeInTheDocument()
+    })
+  })
+})
+
+describe('DeckLoader — 내장 덱', () => {
+  it('히라가나 버튼 클릭 시 시작 버튼이 활성화된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={vi.fn()} />)
+
+    await user.click(screen.getAllByText('히라가나')[0])
+    expect(screen.getByRole('button', { name: /시작/i })).toBeEnabled()
+  })
+
+  it('가타카나 버튼 클릭 시 시작 버튼이 활성화된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={vi.fn()} />)
+
+    await user.click(screen.getByText('가타카나'))
+    expect(screen.getByRole('button', { name: /시작/i })).toBeEnabled()
+  })
+})
+
+describe('DeckLoader — 설정 및 시작', () => {
+  let onStart: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    onStart = vi.fn()
+  })
+
+  it('시작 버튼 클릭 시 onStart에 GameConfig가 전달된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={onStart} />)
+
+    await user.click(screen.getAllByText('히라가나')[0])
+    await user.click(screen.getByRole('button', { name: /시작/i }))
+
+    expect(onStart).toHaveBeenCalledOnce()
+    const config: GameConfig = onStart.mock.calls[0][0]
+    expect(config.cards).toBeDefined()
+    expect(config.sessionSize).toBe(20)
+    expect(config.inputMode).toBeDefined()
+    expect(config.difficulty).toBeDefined()
+  })
+
+  it('세션 크기를 30으로 변경하면 config에 반영된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={onStart} />)
+
+    const slider = screen.getByRole('slider', { name: /세션 크기/i })
+    fireEvent.change(slider, { target: { value: '30' } })
+
+    await user.click(screen.getAllByText('히라가나')[0])
+    await user.click(screen.getByRole('button', { name: /시작/i }))
+
+    const config: GameConfig = onStart.mock.calls[0][0]
+    expect(config.sessionSize).toBe(30)
+  })
+
+  it('입력 모드를 변경하면 config에 반영된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={onStart} />)
+
+    await user.click(screen.getByText('한국어 발음'))
+    await user.click(screen.getAllByText('히라가나')[0])
+    await user.click(screen.getByRole('button', { name: /시작/i }))
+
+    const config: GameConfig = onStart.mock.calls[0][0]
+    expect(config.inputMode).toBe('korean-pronunciation')
+  })
+
+  it('난이도를 어려움으로 변경하면 config에 반영된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={onStart} />)
+
+    await user.click(screen.getByText('어려움'))
+    await user.click(screen.getAllByText('히라가나')[0])
+    await user.click(screen.getByRole('button', { name: /시작/i }))
+
+    const config: GameConfig = onStart.mock.calls[0][0]
+    expect(config.difficulty).toBe('hard')
+  })
+})
