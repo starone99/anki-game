@@ -6,5 +6,14 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    setupFiles: ['./src/__tests__/setup.ts'],
+    server: {
+      deps: {
+        inline: [/src\/lib\/input/],
+      },
+    },
+    deps: {
+      interopDefault: true,
+    },
   },
 })
