@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type React from 'react'
 import type { GameConfig, GameResult } from '../types'
 import type { Card } from '../lib/input'
 import { matchInput, isPrefixMatch, toRomaji, toKoreanPronunciation } from '../lib/input'
@@ -28,7 +29,7 @@ function getAnswer(card: Card, mode: GameConfig['inputMode']): string {
   }
 }
 
-export function GameScreen({ config, onComplete }: Props): JSX.Element {
+export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const { cards, sessionSize, inputMode, difficulty, hp: initialHp = 5 } = config
 
   const sessionRef = useRef(createSession(cards, { sessionSize }))
@@ -42,7 +43,7 @@ export function GameScreen({ config, onComplete }: Props): JSX.Element {
   const [input, setInput] = useState('')
   const [score, setScore] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
-  const [wrongCards, setWrongCards] = useState<Card[]>([])
+
   const [hp, setHp] = useState(initialHp)
   const [hintVisible, setHintVisible] = useState(false)
   const [gameOver, setGameOver] = useState(false)
@@ -59,7 +60,7 @@ export function GameScreen({ config, onComplete }: Props): JSX.Element {
   useEffect(() => { hpRef.current = hp }, [hp])
   useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { correctCountRef.current = correctCount }, [correctCount])
-  useEffect(() => { wrongCardsRef.current = wrongCards }, [wrongCards])
+  // wrongCardsRef tracks wrong cards directly
   useEffect(() => { inputRef.current = input }, [input])
   useEffect(() => { visibleCardsRef.current = visibleCards }, [visibleCards])
 
@@ -71,6 +72,7 @@ export function GameScreen({ config, onComplete }: Props): JSX.Element {
       score: scoreRef.current,
       correctCount: correctCountRef.current,
       wrongCards: wrongCardsRef.current,
+      totalCount: sessionSize,
     })
   }, [onComplete])
 
