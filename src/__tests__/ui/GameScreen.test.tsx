@@ -349,6 +349,26 @@ describe('GameScreen — 타이핑 입력', () => {
 
     expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
   })
+
+  it('매칭 안 되는 입력 후 Enter는 입력창을 비운다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    // 어떤 카드와도 매칭 안 되는 문자열
+    await user.keyboard('zzzzz{Enter}')
+
+    // 입력 표시가 비어 있어야 함
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('매칭 안 되는 입력 후 Enter는 HP를 깎지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    const initialHp = screen.getByTestId('hp-bar').getAttribute('data-hp')
+    await user.keyboard('zzzzz{Enter}')
+    expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
+  })
 })
 
 // ── 하이라이트 ──

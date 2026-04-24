@@ -173,12 +173,6 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     return false
   }, [clearFallTimer, inputMode, replaceVisibleCard, resetInput, session, triggerComplete])
 
-  const syncInputValue = useCallback((newInput: string) => {
-    inputRef.current = newInput
-    setInput(newInput)
-    if (hiddenInputRef.current) hiddenInputRef.current.value = newInput
-  }, [])
-
   const clearSubmitTimer = useCallback(() => {
     if (submitTimerRef.current !== null) {
       window.clearTimeout(submitTimerRef.current)
@@ -191,9 +185,9 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     if (nextInput.length === 0) return
 
     if (!tryMatch(nextInput)) {
-      syncInputValue(nextInput)
+      resetInput()
     }
-  }, [syncInputValue, tryMatch])
+  }, [resetInput, tryMatch])
 
   const handleMissedCard = useCallback((card?: Card) => {
     if (gameOverRef.current) return
