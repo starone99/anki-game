@@ -47,6 +47,8 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const [hp, setHp] = useState(initialHp)
   const [hintVisible, setHintVisible] = useState(false)
   const [gameOver, setGameOver] = useState(false)
+  const [answerFlash, setAnswerFlash] = useState(false)
+  const [gameOverOverlay, setGameOverOverlay] = useState(false)
 
   const gameOverRef = useRef(false)
   const hpRef = useRef(initialHp)
@@ -66,17 +68,26 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   useEffect(() => { inputRef.current = input }, [input])
   useEffect(() => { visibleCardsRef.current = visibleCards }, [visibleCards])
 
-  const triggerComplete = useCallback(() => {
+  const triggerComplete = useCallback((isGameOver = false) => {
     if (gameOverRef.current) return
     gameOverRef.current = true
     setGameOver(true)
-    onComplete({
+    const result = {
       score: scoreRef.current,
       correctCount: correctCountRef.current,
       wrongCards: wrongCardsRef.current,
       totalCount: sessionSize,
-    })
-  }, [onComplete])
+    }
+    if (isGameOver) {
+      setGameOverOverlay(true)
+      setTimeout(() => {
+        setGameOverOverlay(false)
+        onComplete(result)
+      }, 1200)
+    } else {
+      onComplete(result)
+    }
+  }, [onComplete, sessionSize])
 
   // Keep hidden input focused
   useLayoutEffect(() => {
@@ -98,8 +109,10 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       const remaining = session.remaining()
       visibleCardsRef.current = remaining.slice(0, slotCount)
       setVisibleCards(remaining.slice(0, slotCount))
+      setAnswerFlash(true)
+      setTimeout(() => setAnswerFlash(false), 180)
       if (session.isComplete()) {
-        triggerComplete()
+        triggerComplete(false)
       }
     }
   }, [inputMode, session, slotCount, triggerComplete])
@@ -120,7 +133,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       setInput('')
       inputRef.current = ''
       if (hiddenInputRef.current) hiddenInputRef.current.value = ''
-      if (newHp <= 0) triggerComplete()
+      if (newHp <= 0) triggerComplete(true)
       return
     }
   }, [triggerComplete])
@@ -143,6 +156,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   }, [tryMatch])
 
   const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
+  const dangerThreshold = 0.75
 
   return (
     <div className="game-screen">
@@ -190,9 +204,13 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
               data-highlighted={highlighted ? 'true' : 'false'}
               style={{
                 left: `${leftPct}%`,
-                animationDuration: `${fallDuration}s`,
-                animationDelay: `${delay}s`,
-              }}
+                animationName: 'fall, card-danger',
+                animationDuration: `${fallDuration}s, ${fallDuration * (1 - dangerThreshold) * 0.5}s`,
+                animationTimingFunction: 'linear, ease-in-out',
+                animationFillMode: 'forwards, both',
+                animationDelay: `${delay}s, ${delay + fallDuration * dangerThreshold}s`,
+                animationIterationCount: '1, infinite',
+              } as React.CSSProperties}
             >
               <div className="falling-card__word">{card.word}</div>
               <div
@@ -206,6 +224,16 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
           )
         })}
       </div>
+
+      {/* 정답 플래시 */}
+      {answerFlash && <div className="answer-flash" />}
+
+      {/* 게임오버 오버레이 */}
+      {gameOverOverlay && (
+        <div className="game-over-overlay">
+          <span className="game-over-text">GAME OVER</span>
+        </div>
+      )}
 
       {/* 입력 HUD */}
       <div className="input-hud">

@@ -36,18 +36,18 @@ export function ResultScreen({ result, onRestart }: Props): React.JSX.Element {
 
         {wrongCards.length > 0 && (
           <div className="wrong-cards">
-            <div className="wrong-cards__label">MISSED CARDS</div>
+            <div className="wrong-cards__title">MISSED CARDS</div>
+            <div className="wrong-cards__list" data-testid="wrong-cards-list">
+              {wrongCards.map((card) => (
+                <div key={card.word} className="wrong-card" data-testid="wrong-card-item">
+                  <span className="wrong-card__word">{card.word}</span>
+                  <span className="wrong-card__reading">{card.reading}</span>
+                  <span className="wrong-card__meaning">{card.meanings[0]}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-        <div data-testid="wrong-cards-list" className={wrongCards.length > 0 ? 'wrong-cards__items' : ''}>
-          {wrongCards.map((card) => (
-            <div key={card.word} className="wrong-card" data-testid="wrong-card-item">
-              <span className="wrong-card__word">{card.word}</span>
-              <span className="wrong-card__reading">{card.reading}</span>
-              <span className="wrong-card__meaning">{card.meanings[0]}</span>
-            </div>
-          ))}
-        </div>
 
         <button className="btn-primary" onClick={onRestart}>다시하기</button>
       </div>

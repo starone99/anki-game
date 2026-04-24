@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type React from 'react'
 import type { Card, InputMode } from '../lib/input'
 import type { Difficulty, GameConfig } from '../types'
@@ -114,21 +114,26 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
   const [inputMode, setInputMode] = useState<InputMode>('romaji')
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelect = async (file: File) => {
+    setError(null)
+    if (!file.name.endsWith('.apkg')) {
+      setError('.apkg 파일만 지원합니다')
+      return
+    }
+    const buffer = await file.arrayBuffer()
+    const parsed = await parseApkg(buffer)
+    setCards(parsed)
+    setCardCount(parsed.length)
+  }
+
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setError(null)
     const file = e.dataTransfer.files[0]
     if (!file) return
-
-    if (!file.name.endsWith('.apkg')) {
-      setError('.apkg 파일만 지원합니다')
-      return
-    }
-
-    const buffer = await file.arrayBuffer()
-    const parsed = await parseApkg(buffer)
-    setCards(parsed)
-    setCardCount(parsed.length)
+    await handleFileSelect(file)
   }
 
   const handleBuiltinDeck = (deckCards: Card[]) => {
@@ -182,8 +187,21 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
             className="dropzone"
             data-testid="dropzone"
             onDrop={handleDrop}
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={(e) => { e.preventDefault(); (e.currentTarget as HTMLDivElement).classList.add('drag-over') }}
+            onDragLeave={(e) => (e.currentTarget as HTMLDivElement).classList.remove('drag-over')}
+            onClick={() => fileInputRef.current?.click()}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".apkg"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (file) await handleFileSelect(file)
+                e.target.value = ''
+              }}
+            />
             <div className="dropzone__icon">⬇</div>
             <div className="dropzone__text">.apkg 파일을 드래그하거나 클릭하세요</div>
             {cardCount !== null && <div className="dropzone__count">{cardCount}장 로드됨</div>}
