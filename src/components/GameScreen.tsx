@@ -67,6 +67,8 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const ignoredFallKeysRef = useRef<Set<string>>(new Set())
   const lastCorrectAtRef = useRef(0)
   const fallTimersRef = useRef<Map<string, number>>(new Map())
+  const submitTimerRef = useRef<number | null>(null)
+  const pendingSubmitRef = useRef(false)
 
   const resetInput = useCallback(() => {
     setInput('')
@@ -177,6 +179,13 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     if (hiddenInputRef.current) hiddenInputRef.current.value = newInput
   }, [])
 
+  const clearSubmitTimer = useCallback(() => {
+    if (submitTimerRef.current !== null) {
+      window.clearTimeout(submitTimerRef.current)
+      submitTimerRef.current = null
+    }
+  }, [])
+
   const submitInput = useCallback((liveInput?: string) => {
     const nextInput = liveInput ?? hiddenInputRef.current?.value ?? inputRef.current
     if (nextInput.length === 0) return
@@ -228,6 +237,23 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     }
   }, [submitInput])
 
+  const handleKeyUp = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (gameOverRef.current) return
+    if (e.key !== 'Enter') return
+    if (isComposingRef.current || (e.nativeEvent as KeyboardEvent).isComposing) return
+    submitInput(e.currentTarget.value)
+  }, [submitInput])
+
+  const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (gameOverRef.current) return
+    if (isComposingRef.current) {
+      pendingSubmitRef.current = true
+      return
+    }
+    submitInput()
+  }, [submitInput])
+
   const handleGlobalKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (gameOverRef.current) return
     focusInput()
@@ -240,6 +266,10 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
 
     if (e.key === 'Enter') {
       e.preventDefault()
+      if (isComposingRef.current || (e.nativeEvent as KeyboardEvent).isComposing) {
+        pendingSubmitRef.current = true
+        return
+      }
       submitInput()
       return
     }
@@ -271,9 +301,15 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       if (hiddenInputRef.current) hiddenInputRef.current.value = newInput
       inputRef.current = newInput
       setInput(newInput)
-      tryMatch(newInput)
     }
-  }, [focusInput, resetInput, tryMatch])
+  }, [focusInput, resetInput, submitInput])
+
+  const handleGlobalKeyUp = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (gameOverRef.current) return
+    if (e.key !== 'Enter') return
+    if (isComposingRef.current || (e.nativeEvent as KeyboardEvent).isComposing) return
+    submitInput()
+  }, [submitInput])
 
   const handleCardFall = useCallback((card: Card) => {
     handleMissedCard(card)
@@ -283,17 +319,27 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     if (gameOverRef.current) return
     inputRef.current = newInput
     setInput(newInput)
-    tryMatch(newInput)
-  }, [tryMatch])
+  }, [])
 
   const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
     handleInputValue(e.currentTarget.value)
   }, [handleInputValue])
 
   const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+    const committedValue = e.currentTarget.value
     isComposingRef.current = false
-    handleInputValue(e.currentTarget.value)
-  }, [handleInputValue])
+    handleInputValue(committedValue)
+    if (pendingSubmitRef.current) {
+      pendingSubmitRef.current = false
+      clearSubmitTimer()
+      submitTimerRef.current = window.setTimeout(() => {
+        submitTimerRef.current = null
+        if (!gameOverRef.current) {
+          submitInput(committedValue)
+        }
+      }, 0)
+    }
+  }, [clearSubmitTimer, handleInputValue, submitInput])
 
   const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
   const dangerThreshold = 0.75
@@ -315,13 +361,14 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
 
   useEffect(() => {
     return () => {
+      clearSubmitTimer()
       fallTimersRef.current.forEach(timer => window.clearTimeout(timer))
       fallTimersRef.current.clear()
     }
-  }, [])
+  }, [clearSubmitTimer])
 
   return (
-    <div className="game-screen" tabIndex={-1} onKeyDown={handleGlobalKeyDown}>
+    <div className="game-screen" tabIndex={-1} onKeyDown={handleGlobalKeyDown} onKeyUp={handleGlobalKeyUp}>
       {/* HUD */}
       <div className="game-hud">
         <div className="hud-block">
@@ -418,16 +465,19 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       </div>
 
       {/* Hidden input captures all keyboard input including IME/Korean */}
-      <input
-        ref={hiddenInputRef}
-        autoFocus
-        className="game-keyboard-input"
-        onKeyDown={handleKeyDown}
-        onInput={handleInput}
-        onCompositionStart={() => { isComposingRef.current = true }}
-        onCompositionEnd={handleCompositionEnd}
-        aria-label="Game input"
-      />
+      <form className="game-input-form" onSubmit={handleSubmit}>
+        <input
+          ref={hiddenInputRef}
+          autoFocus
+          className="game-keyboard-input"
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
+          onInput={handleInput}
+          onCompositionStart={() => { isComposingRef.current = true }}
+          onCompositionEnd={handleCompositionEnd}
+          aria-label="Game input"
+        />
+      </form>
     </div>
   )
 }

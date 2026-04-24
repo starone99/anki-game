@@ -20,6 +20,10 @@ const makeConfig = (overrides?: Partial<GameConfig>): GameConfig => ({
   ...overrides,
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 // ── 렌더링 ──
 
 describe('GameScreen — 렌더링', () => {
@@ -100,7 +104,7 @@ describe('GameScreen — 타이핑 입력', () => {
     const word = firstCard.getAttribute('data-word')!
     const answer = firstCard.getAttribute('data-answer')!
 
-    await user.keyboard(answer)
+    await user.keyboard(`${answer}{Enter}`)
 
     expect(Number(screen.getByTestId('score').textContent)).toBeGreaterThan(initialScore)
     // 정답 카드는 화면에서 제거됨
@@ -145,7 +149,7 @@ describe('GameScreen — 타이핑 입력', () => {
     const secondLeft = cards[1].style.left
     const answer = cards[0].getAttribute('data-answer')!
 
-    await user.keyboard(answer)
+    await user.keyboard(`${answer}{Enter}`)
 
     const sameSecondCard = screen
       .getAllByTestId('falling-card')
@@ -169,7 +173,7 @@ describe('GameScreen — 타이핑 입력', () => {
     const firstCard = screen.getAllByTestId('falling-card')[0]
     const answer = firstCard.getAttribute('data-answer')!
 
-    await user.keyboard(answer)
+    await user.keyboard(`${answer}{Enter}`)
 
     expect(screen.getByTestId('current-input')).toHaveTextContent('')
   })
@@ -192,6 +196,8 @@ describe('GameScreen — 타이핑 입력', () => {
     const input = screen.getByLabelText('Game input')
     fireEvent.compositionStart(input)
     fireEvent.input(input, { target: { value: '먹다' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.keyUp(input, { key: 'Enter' })
 
     expect(screen.getByTestId('score')).toHaveTextContent('1')
     expect(screen.getByTestId('current-input')).toHaveTextContent('')
@@ -209,14 +215,99 @@ describe('GameScreen — 타이핑 입력', () => {
           inputMode: 'meaning',
         })}
         onComplete={vi.fn()}
+    />,
+    )
+
+    const input = screen.getByLabelText('Game input') as HTMLInputElement
+    input.value = 'eat'
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.getByTestId('score')).toHaveTextContent('1')
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('submits through the form submit path', () => {
+    render(
+      <GameScreen
+        config={makeConfig({
+          cards: [
+            { word: 'taberu', reading: 'taberu', meanings: ['eat'] },
+            { word: 'miru', reading: 'miru', meanings: ['see'] },
+          ],
+          sessionSize: 2,
+          inputMode: 'meaning',
+        })}
+        onComplete={vi.fn()}
+      />,
+    )
+
+    const input = screen.getByLabelText('Game input') as HTMLInputElement
+    const form = input.closest('form')
+    input.value = 'eat'
+
+    expect(form).not.toBeNull()
+    fireEvent.submit(form!)
+
+    expect(screen.getByTestId('score')).toHaveTextContent('1')
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('submits on Enter keyup when keydown path is unavailable', () => {
+    render(
+      <GameScreen
+        config={makeConfig({
+          cards: [
+            { word: 'taberu', reading: 'taberu', meanings: ['eat'] },
+            { word: 'miru', reading: 'miru', meanings: ['see'] },
+          ],
+          sessionSize: 2,
+          inputMode: 'meaning',
+        })}
+        onComplete={vi.fn()}
+      />,
+    )
+
+    const screenRoot = document.querySelector('.game-screen') as HTMLElement
+    const input = screen.getByLabelText('Game input') as HTMLInputElement
+    input.value = 'eat'
+
+    fireEvent.keyUp(screenRoot, { key: 'Enter' })
+
+    expect(screen.getByTestId('score')).toHaveTextContent('1')
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('submits after composition ends when Enter is pressed during IME input', () => {
+    vi.useFakeTimers()
+    render(
+      <GameScreen
+        config={makeConfig({
+          cards: [
+            { word: 'taberu', reading: 'taberu', meanings: ['eat'] },
+            { word: 'miru', reading: 'miru', meanings: ['see'] },
+          ],
+          sessionSize: 2,
+          inputMode: 'meaning',
+        })}
+        onComplete={vi.fn()}
       />,
     )
 
     const input = screen.getByLabelText('Game input')
-    fireEvent.keyDown(input, { key: 'Enter', target: { value: 'eat' } })
+    fireEvent.compositionStart(input)
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
+    expect(screen.getByTestId('score')).toHaveTextContent('0')
+
+    fireEvent.compositionEnd(input, { target: { value: 'eat' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.keyUp(input, { key: 'Enter' })
+    act(() => {
+      vi.runOnlyPendingTimers()
+    })
 
     expect(screen.getByTestId('score')).toHaveTextContent('1')
     expect(screen.getByTestId('current-input')).toHaveTextContent('')
+    vi.useRealTimers()
   })
 
   it('Backspace works when focus is on the game screen fallback handler', () => {
@@ -239,7 +330,7 @@ describe('GameScreen — 타이핑 입력', () => {
     const firstCard = screen.getAllByTestId('falling-card')[0]
     const answer = firstCard.getAttribute('data-answer')!
 
-    await user.keyboard(answer)
+    await user.keyboard(`${answer}{Enter}`)
     fireEvent.animationEnd(firstCard, { animationName: 'fall' })
 
     expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
