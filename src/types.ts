@@ -14,4 +14,5 @@ export interface GameResult {
   score: number
   correctCount: number
   wrongCards: Card[]
+  totalCount: number
 }
