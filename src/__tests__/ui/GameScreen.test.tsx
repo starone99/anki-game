@@ -369,6 +369,38 @@ describe('GameScreen — 타이핑 입력', () => {
     await user.keyboard('zzzzz{Enter}')
     expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
   })
+
+  it('다른 카드가 낙하해도 입력 중인 텍스트는 보존된다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    // 절반만 타이핑 (완성되지 않은 상태)
+    const firstCard = screen.getAllByTestId('falling-card')[0]
+    const answer = firstCard.getAttribute('data-answer')!
+    const partial = answer.slice(0, Math.max(1, answer.length - 1))
+    await user.keyboard(partial)
+    expect(screen.getByTestId('current-input')).toHaveTextContent(partial)
+
+    // 다른 카드를 낙하시킴 (animationend 이벤트).
+    // React 19 + jsdom은 dispatchEvent/fireEvent.animationEnd로 React 합성 이벤트를
+    // 트리거하지 못하므로, React가 바인딩한 onAnimationEnd를 직접 호출한다.
+    const cards = screen.getAllByTestId('falling-card')
+    const otherCard = cards[1]  // 타이핑 대상이 아닌 다른 카드
+    const propsKey = Object.keys(otherCard).find(k => k.startsWith('__reactProps'))!
+    const cardProps = (otherCard as unknown as Record<string, { onAnimationEnd?: (e: unknown) => void }>)[propsKey]
+    act(() => {
+      cardProps.onAnimationEnd?.({
+        animationName: 'fall',
+        currentTarget: otherCard,
+        target: otherCard,
+        stopPropagation: () => {},
+        preventDefault: () => {},
+      })
+    })
+
+    // 내 부분 입력은 그대로 남아 있어야 함
+    expect(screen.getByTestId('current-input')).toHaveTextContent(partial)
+  })
 })
 
 // ── 하이라이트 ──

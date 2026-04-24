@@ -207,12 +207,11 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     const newHp = hpRef.current - 1
     hpRef.current = newHp
     setHp(newHp)
-    resetInput()
 
     replaceVisibleCard(card)
 
     if (newHp <= 0) triggerComplete(true)
-  }, [clearFallTimer, replaceVisibleCard, resetInput, session, triggerComplete])
+  }, [clearFallTimer, replaceVisibleCard, session, triggerComplete])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (gameOverRef.current) return
