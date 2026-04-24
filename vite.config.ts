@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/anki-rain/',
+  base: '/anki-game/',
   test: {
     globals: true,
     deps: {
