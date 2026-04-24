@@ -93,6 +93,25 @@ describe('DeckLoader — 파일 드롭', () => {
   })
 })
 
+describe('DeckLoader — 드롭존 클릭', () => {
+  it('드롭존 클릭 시 숨겨진 파일 input이 존재한다', () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const input = document.querySelector('input[type="file"]')
+    expect(input).toBeInTheDocument()
+    expect(input).toHaveAttribute('accept', '.apkg')
+  })
+
+  it('파일 input으로 .apkg 파일을 선택하면 카드 수가 표시된다', async () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['dummy'], 'test.apkg', { type: 'application/octet-stream' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    await waitFor(() => {
+      expect(screen.getByText(/2장/)).toBeInTheDocument()
+    })
+  })
+})
+
 describe('DeckLoader — 내장 덱', () => {
   it('히라가나 버튼 클릭 시 시작 버튼이 활성화된다', async () => {
     const user = userEvent.setup()

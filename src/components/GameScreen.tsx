@@ -157,6 +157,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
 
   const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
   const dangerThreshold = 0.75
+  const inputError = input.length > 0 && !visibleCards.some(card => isPrefixMatch(input, card, inputMode))
 
   return (
     <div className="game-screen">
@@ -237,7 +238,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
 
       {/* 입력 HUD */}
       <div className="input-hud">
-        <div className="input-display" data-testid="current-input">{input}</div>
+        <div className="input-display" data-testid="current-input" data-error={inputError ? 'true' : 'false'}>{input}</div>
         <span className="input-hint">Tab: 힌트 · Enter: 스킵</span>
       </div>
 

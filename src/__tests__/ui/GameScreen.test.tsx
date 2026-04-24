@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameScreen } from '../../components/GameScreen'
 import type { GameConfig } from '../../types'
@@ -213,12 +213,8 @@ describe('GameScreen — 게임 종료', () => {
     const onComplete = vi.fn()
     render(<GameScreen config={makeConfig({ hp: 1 } as GameConfig)} onComplete={onComplete} />)
 
-    // 오답 5번 입력해서 HP 소진
-    for (let i = 0; i < 5; i++) {
-      await user.keyboard('zzzzz{Enter}')
-    }
-
-    expect(onComplete).toHaveBeenCalled()
+    await user.keyboard('zzzzz{Enter}')
+    await waitFor(() => expect(onComplete).toHaveBeenCalled(), { timeout: 2000 })
   })
 
   it('onComplete 호출 시 GameResult가 전달된다', async () => {
@@ -226,17 +222,48 @@ describe('GameScreen — 게임 종료', () => {
     const onComplete = vi.fn()
     render(<GameScreen config={makeConfig({ hp: 1 } as GameConfig)} onComplete={onComplete} />)
 
-    for (let i = 0; i < 5; i++) {
-      await user.keyboard('zzzzz{Enter}')
-    }
+    await user.keyboard('zzzzz{Enter}')
+    await waitFor(() => expect(onComplete).toHaveBeenCalled(), { timeout: 2000 })
 
-    if (onComplete.mock.calls.length > 0) {
-      const result = onComplete.mock.calls[0][0]
-      expect(result).toMatchObject({
-        score: expect.any(Number),
-        correctCount: expect.any(Number),
-        wrongCards: expect.any(Array),
-      })
-    }
+    const result = onComplete.mock.calls[0][0]
+    expect(result).toMatchObject({
+      score: expect.any(Number),
+      correctCount: expect.any(Number),
+      wrongCards: expect.any(Array),
+    })
+  })
+})
+
+// ── 입력 오류 피드백 ──
+
+describe('GameScreen — 입력 오류 피드백', () => {
+  it('입력이 없을 때 오류 상태가 아니다', () => {
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+    expect(screen.getByTestId('current-input')).toHaveAttribute('data-error', 'false')
+  })
+
+  it('접두사가 일치하는 입력은 오류 상태가 아니다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+    const firstCard = screen.getAllByTestId('falling-card')[0]
+    const answer = firstCard.getAttribute('data-answer')!
+    await user.keyboard(answer[0])
+    expect(screen.getByTestId('current-input')).toHaveAttribute('data-error', 'false')
+  })
+
+  it('어떤 카드에도 매칭 안 되는 입력은 오류 상태다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+    await user.keyboard('zzzzzzz')
+    expect(screen.getByTestId('current-input')).toHaveAttribute('data-error', 'true')
+  })
+
+  it('정답 입력 후 입력창 오류가 초기화된다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+    const firstCard = screen.getAllByTestId('falling-card')[0]
+    const answer = firstCard.getAttribute('data-answer')!
+    await user.keyboard(answer)
+    expect(screen.getByTestId('current-input')).toHaveAttribute('data-error', 'false')
   })
 })

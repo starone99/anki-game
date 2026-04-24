@@ -390,8 +390,9 @@ body::before {
 
 /* ── 낙하 카드 ── */
 @keyframes fall {
-  from { transform: translateY(-120px); }
-  to   { transform: translateY(calc(100vh - 80px)); }
+  from { transform: translateY(-120px); opacity: 0; }
+  5%   { opacity: 1; }
+  to   { transform: translateY(calc(100vh - 80px)); opacity: 1; }
 }
 
 @keyframes card-danger {
@@ -515,6 +516,11 @@ body::before {
   display: flex;
   align-items: center;
   padding: 0 4px;
+}
+
+.input-display[data-error='true'] {
+  color: var(--pink);
+  text-shadow: var(--pink-glow);
 }
 
 .input-display::after {
