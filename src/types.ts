@@ -7,4 +7,11 @@ export interface GameConfig {
   sessionSize: number
   inputMode: InputMode
   difficulty: Difficulty
+  hp?: number
+}
+
+export interface GameResult {
+  score: number
+  correctCount: number
+  wrongCards: Card[]
 }
