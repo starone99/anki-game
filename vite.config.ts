@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/anki-game/',
   test: {
     globals: true,
     deps: {
@@ -12,6 +13,6 @@ export default defineConfig({
       ['src/__tests__/ui/**', 'jsdom'],
       ['src/__tests__/**', 'node'],
     ],
-    setupFiles: ['./src/__tests__/setup.ts', './src/__tests__/ui/setup.ts'],
+    setupFiles: ['./src/__tests__/setup.ts'],
   },
 })

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -20,7 +22,7 @@ describe('DeckLoader — 렌더링', () => {
 
   it('내장 덱 버튼 3개가 렌더링된다', () => {
     render(<DeckLoader onStart={vi.fn()} />)
-    expect(screen.getByText('히라가나')).toBeInTheDocument()
+    expect(screen.getAllByText('히라가나').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('가타카나')).toBeInTheDocument()
     expect(screen.getByText('히라가나 + 가타카나')).toBeInTheDocument()
   })
@@ -29,7 +31,8 @@ describe('DeckLoader — 렌더링', () => {
     render(<DeckLoader onStart={vi.fn()} />)
     expect(screen.getByText('로마자')).toBeInTheDocument()
     expect(screen.getByText('한국어 발음')).toBeInTheDocument()
-    expect(screen.getByText('히라가나')).toBeInTheDocument()
+    // "히라가나"는 내장 덱 버튼과 입력 모드 버튼에 각각 존재
+    expect(screen.getAllByText('히라가나').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('의미')).toBeInTheDocument()
   })
 
