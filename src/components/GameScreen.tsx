@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import type React from 'react'
 import type { GameConfig, GameResult } from '../types'
 import type { Card } from '../lib/input'
@@ -55,6 +55,8 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const wrongCardsRef = useRef<Card[]>([])
   const inputRef = useRef('')
   const visibleCardsRef = useRef<Card[]>(visibleCards)
+  const hiddenInputRef = useRef<HTMLInputElement>(null)
+  const isComposingRef = useRef(false)
 
   // sync refs
   useEffect(() => { hpRef.current = hp }, [hp])
@@ -76,70 +78,69 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     })
   }, [onComplete])
 
-  useEffect(() => {
-    if (gameOver) return
+  // Keep hidden input focused
+  useLayoutEffect(() => {
+    if (!gameOver) hiddenInputRef.current?.focus()
+  })
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameOverRef.current) return
-
-      if (e.key === 'Tab') {
-        e.preventDefault()
-        setHintVisible(v => !v)
-        return
-      }
-
-      if (e.key === 'Enter') {
-        // Wrong answer — HP -1
-        const newHp = hpRef.current - 1
-        hpRef.current = newHp
-        setHp(newHp)
-        setInput('')
-        inputRef.current = ''
-        if (newHp <= 0) {
-          triggerComplete()
-        }
-        return
-      }
-
-      if (e.key === 'Backspace') {
-        const newInput = inputRef.current.slice(0, -1)
-        inputRef.current = newInput
-        setInput(newInput)
-        return
-      }
-
-      // Printable key
-      if (e.key.length === 1) {
-        const newInput = inputRef.current + e.key
-        inputRef.current = newInput
-        setInput(newInput)
-
-        // Check for match
-        const currentVisible = visibleCardsRef.current
-        const matchedCard = currentVisible.find(card =>
-          matchInput(newInput, card, inputMode)
-        )
-        if (matchedCard) {
-          session.markCorrect(matchedCard)
-          scoreRef.current += 1
-          correctCountRef.current += 1
-          setScore(s => s + 1)
-          setCorrectCount(c => c + 1)
-          setInput('')
-          inputRef.current = ''
-          const remaining = session.remaining()
-          visibleCardsRef.current = remaining.slice(0, slotCount)
-          setVisibleCards(remaining.slice(0, slotCount))
-          if (session.isComplete()) {
-            triggerComplete()
-          }
-        }
+  const tryMatch = useCallback((newInput: string) => {
+    const currentVisible = visibleCardsRef.current
+    const matchedCard = currentVisible.find(card => matchInput(newInput, card, inputMode))
+    if (matchedCard) {
+      session.markCorrect(matchedCard)
+      scoreRef.current += 1
+      correctCountRef.current += 1
+      setScore(s => s + 1)
+      setCorrectCount(c => c + 1)
+      setInput('')
+      inputRef.current = ''
+      if (hiddenInputRef.current) hiddenInputRef.current.value = ''
+      const remaining = session.remaining()
+      visibleCardsRef.current = remaining.slice(0, slotCount)
+      setVisibleCards(remaining.slice(0, slotCount))
+      if (session.isComplete()) {
+        triggerComplete()
       }
     }
+  }, [inputMode, session, slotCount, triggerComplete])
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [gameOver, inputMode, session, slotCount, triggerComplete])
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (gameOverRef.current) return
+
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      setHintVisible(v => !v)
+      return
+    }
+
+    if (e.key === 'Enter') {
+      const newHp = hpRef.current - 1
+      hpRef.current = newHp
+      setHp(newHp)
+      setInput('')
+      inputRef.current = ''
+      if (hiddenInputRef.current) hiddenInputRef.current.value = ''
+      if (newHp <= 0) triggerComplete()
+      return
+    }
+  }, [triggerComplete])
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (gameOverRef.current) return
+    if (isComposingRef.current) return
+    const newInput = e.target.value
+    inputRef.current = newInput
+    setInput(newInput)
+    tryMatch(newInput)
+  }, [tryMatch])
+
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false
+    const newInput = (e.target as HTMLInputElement).value
+    inputRef.current = newInput
+    setInput(newInput)
+    tryMatch(newInput)
+  }, [tryMatch])
 
   const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
 
@@ -211,6 +212,17 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
         <div className="input-display" data-testid="current-input">{input}</div>
         <span className="input-hint">Tab: 힌트 · Enter: 스킵</span>
       </div>
+
+      {/* Hidden input captures all keyboard input including IME/Korean */}
+      <input
+        ref={hiddenInputRef}
+        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+        onKeyDown={handleKeyDown}
+        onChange={handleInputChange}
+        onCompositionStart={() => { isComposingRef.current = true }}
+        onCompositionEnd={handleCompositionEnd}
+        aria-hidden="true"
+      />
     </div>
   )
 }
