@@ -156,69 +156,101 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
   ]
 
   return (
-    <div>
-      {/* Built-in deck buttons — rendered BEFORE input mode options */}
-      <div>
-        <button onClick={() => handleBuiltinDeck(HIRAGANA_CARDS)}>히라가나</button>
-        <button onClick={() => handleBuiltinDeck(KATAKANA_CARDS)}>가타카나</button>
-        <button onClick={() => handleBuiltinDeck([...HIRAGANA_CARDS, ...KATAKANA_CARDS])}>
-          히라가나 + 가타카나
-        </button>
-      </div>
+    <div className="deck-loader">
+      <div className="deck-loader__inner">
+        <div className="deck-loader__title">
+          <h1>ANKI RAIN</h1>
+          <p>単語降雨ゲーム · Japanese Typing Game</p>
+        </div>
 
-      {/* Drop zone */}
-      <div
-        data-testid="dropzone"
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        파일을 드롭하세요
-        {cardCount !== null && <span>{cardCount}장</span>}
-        {error && <span>{error}</span>}
-      </div>
+        {/* Built-in deck buttons — rendered BEFORE input mode options */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">내장 덱</div>
+          <div className="deck-loader__builtin-btns">
+            <button className={`btn${cards && cardCount === HIRAGANA_CARDS.length ? ' active' : ''}`} onClick={() => handleBuiltinDeck(HIRAGANA_CARDS)}>히라가나</button>
+            <button className={`btn${cards && cardCount === KATAKANA_CARDS.length ? ' active' : ''}`} onClick={() => handleBuiltinDeck(KATAKANA_CARDS)}>가타카나</button>
+            <button className="btn" onClick={() => handleBuiltinDeck([...HIRAGANA_CARDS, ...KATAKANA_CARDS])}>
+              히라가나 + 가타카나
+            </button>
+          </div>
+        </div>
 
-      {/* Input mode */}
-      <div>
-        {inputModeOptions.map(({ label, value }) => (
-          <button
-            key={value}
-            onClick={() => setInputMode(value)}
-            aria-pressed={inputMode === value}
+        {/* Drop zone */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">덱 파일 로드</div>
+          <div
+            className="dropzone"
+            data-testid="dropzone"
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
           >
-            {label}
+            <div className="dropzone__icon">⬇</div>
+            <div className="dropzone__text">.apkg 파일을 드래그하거나 클릭하세요</div>
+            {cardCount !== null && <div className="dropzone__count">{cardCount}장 로드됨</div>}
+            {error && <div className="dropzone__error">{error}</div>}
+          </div>
+        </div>
+
+        {/* Input mode */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">입력 모드</div>
+          <div className="deck-loader__options">
+            {inputModeOptions.map(({ label, value }) => (
+              <button
+                key={value}
+                className={`btn${inputMode === value ? ' active' : ''}`}
+                onClick={() => setInputMode(value)}
+                aria-pressed={inputMode === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Session size slider */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">세션 크기</div>
+          <div className="slider-row">
+            <label style={{ display: 'contents' }}>
+              <span className="deck-loader__label" style={{ border: 'none', paddingBottom: 0 }}>세션 크기</span>
+              <input
+                type="range"
+                aria-label="세션 크기"
+                min={10}
+                max={50}
+                value={sessionSize}
+                onChange={(e) => setSessionSize(Number(e.target.value))}
+              />
+            </label>
+            <span className="slider-row__value">{sessionSize}</span>
+          </div>
+        </div>
+
+        {/* Difficulty */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">난이도</div>
+          <div className="deck-loader__options">
+            {difficultyOptions.map(({ label, value }) => (
+              <button
+                key={value}
+                className={`btn${difficulty === value ? ' active' : ''}`}
+                onClick={() => setDifficulty(value)}
+                aria-pressed={difficulty === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Start button */}
+        <div className="deck-loader__start">
+          <button className="btn-primary" onClick={handleStart} disabled={cards === null}>
+            시작
           </button>
-        ))}
+        </div>
       </div>
-
-      {/* Session size slider */}
-      <label>
-        세션 크기
-        <input
-          type="range"
-          min={10}
-          max={50}
-          value={sessionSize}
-          onChange={(e) => setSessionSize(Number(e.target.value))}
-        />
-      </label>
-
-      {/* Difficulty */}
-      <div>
-        {difficultyOptions.map(({ label, value }) => (
-          <button
-            key={value}
-            onClick={() => setDifficulty(value)}
-            aria-pressed={difficulty === value}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Start button */}
-      <button onClick={handleStart} disabled={cards === null}>
-        시작
-      </button>
     </div>
   )
 }

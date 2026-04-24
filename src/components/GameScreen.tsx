@@ -141,32 +141,76 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [gameOver, inputMode, session, slotCount, triggerComplete])
 
+  const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
+
   return (
-    <div>
-      <div data-testid="hp-bar" data-hp={String(hp)} />
-      <div data-testid="score">{score}</div>
-      <div data-testid="card-count">{session.remaining().length}</div>
-      <div data-testid="game-area">
-        {visibleCards.map(card => {
+    <div className="game-screen">
+      {/* HUD */}
+      <div className="game-hud">
+        <div className="hud-block">
+          <span className="hud-block__label">Score</span>
+          <span className="hud-block__value" data-testid="score">{score}</span>
+        </div>
+
+        <div className="hud-block" style={{ alignItems: 'center' }}>
+          <span className="hud-block__label">HP</span>
+          <div
+            className="hp-pips"
+            data-testid="hp-bar"
+            data-hp={String(hp)}
+          >
+            {Array.from({ length: initialHp }, (_, i) => (
+              <div key={i} className={`hp-pip${i >= hp ? ' empty' : ''}`} />
+            ))}
+          </div>
+        </div>
+
+        <div className="hud-block" style={{ alignItems: 'flex-end' }}>
+          <span className="hud-block__label">Remaining</span>
+          <span className="hud-block__value" data-testid="card-count">{session.remaining().length}</span>
+        </div>
+      </div>
+
+      {/* 게임 영역 */}
+      <div className="game-area" data-testid="game-area">
+        {visibleCards.map((card, i) => {
           const answer = getAnswer(card, inputMode)
           const highlighted = input.length > 0 && isPrefixMatch(input, card, inputMode)
+          const leftPct = 5 + (i * (90 / Math.max(slotCount - 1, 1)))
+          const delay = i * 0.4
+
           return (
             <div
               key={card.word}
+              className={`falling-card${highlighted ? ' highlighted' : ''}`}
               data-testid="falling-card"
               data-word={card.word}
               data-answer={answer}
               data-highlighted={highlighted ? 'true' : 'false'}
+              style={{
+                left: `${leftPct}%`,
+                animationDuration: `${fallDuration}s`,
+                animationDelay: `${delay}s`,
+              }}
             >
-              <span>{card.word}</span>
-              <span data-testid="reading-hint" data-visible={hintVisible ? 'true' : 'false'}>
+              <div className="falling-card__word">{card.word}</div>
+              <div
+                className="falling-card__hint"
+                data-testid="reading-hint"
+                data-visible={hintVisible ? 'true' : 'false'}
+              >
                 {card.reading}
-              </span>
+              </div>
             </div>
           )
         })}
       </div>
-      <div data-testid="current-input">{input}</div>
+
+      {/* 입력 HUD */}
+      <div className="input-hud">
+        <div className="input-display" data-testid="current-input">{input}</div>
+        <span className="input-hint">Tab: 힌트 · Enter: 스킵</span>
+      </div>
     </div>
   )
 }

@@ -11,25 +11,46 @@ export function ResultScreen({ result, onRestart }: Props): React.JSX.Element {
   const accuracy = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100)
 
   return (
-    <div>
-      <div data-testid="result-score">{score}</div>
-      <div data-testid="result-accuracy">{accuracy}%</div>
+    <div className="result-screen">
+      <div className="result-screen__inner">
+        <h2 className="result-screen__title">RESULT</h2>
 
-      {wrongCards.length === 0 && (
-        <div data-testid="perfect-message">퍼펙트!</div>
-      )}
+        {wrongCards.length === 0 && (
+          <div className="perfect-message" data-testid="perfect-message">⚡ PERFECT ⚡</div>
+        )}
 
-      <div data-testid="wrong-cards-list">
-        {wrongCards.map((card) => (
-          <div key={card.word} data-testid="wrong-card-item">
-            <span>{card.word}</span>
-            <span>{card.reading}</span>
-            <span>{card.meanings[0]}</span>
+        <div className="result-stats">
+          <div className="result-stat">
+            <span className="result-stat__label">SCORE</span>
+            <span className="result-stat__value" data-testid="result-score">{score}</span>
           </div>
-        ))}
-      </div>
+          <div className="result-stat">
+            <span className="result-stat__label">ACCURACY</span>
+            <span className="result-stat__value" data-testid="result-accuracy">{accuracy}%</span>
+          </div>
+          <div className="result-stat">
+            <span className="result-stat__label">CORRECT</span>
+            <span className="result-stat__value">{correctCount} / {totalCount}</span>
+          </div>
+        </div>
 
-      <button onClick={onRestart}>다시하기</button>
+        {wrongCards.length > 0 && (
+          <div className="wrong-cards">
+            <div className="wrong-cards__label">MISSED CARDS</div>
+          </div>
+        )}
+        <div data-testid="wrong-cards-list" className={wrongCards.length > 0 ? 'wrong-cards__items' : ''}>
+          {wrongCards.map((card) => (
+            <div key={card.word} className="wrong-card" data-testid="wrong-card-item">
+              <span className="wrong-card__word">{card.word}</span>
+              <span className="wrong-card__reading">{card.reading}</span>
+              <span className="wrong-card__meaning">{card.meanings[0]}</span>
+            </div>
+          ))}
+        </div>
+
+        <button className="btn-primary" onClick={onRestart}>다시하기</button>
+      </div>
     </div>
   )
 }
