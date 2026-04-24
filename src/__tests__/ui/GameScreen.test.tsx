@@ -504,3 +504,82 @@ describe('GameScreen — 입력 오류 피드백', () => {
     expect(screen.getByTestId('current-input')).toHaveAttribute('data-error', 'false')
   })
 })
+
+// ── 낙하 위치 랜덤화 ──
+
+describe('GameScreen — 낙하 위치 랜덤화', () => {
+  it('Math.random 값에 따라 카드의 left 스타일이 결정된다', () => {
+    // Math.random을 카드마다 다른 값으로 반환하게 스텁
+    const seq = [0.1, 0.4, 0.7, 0.9]
+    let i = 0
+    vi.spyOn(Math, 'random').mockImplementation(() => seq[i++ % seq.length])
+    try {
+      render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+      const cards = screen.getAllByTestId('falling-card')
+      expect(cards.length).toBeGreaterThanOrEqual(4)
+
+      const lefts = cards.slice(0, 4).map(c => parseFloat((c as HTMLElement).style.left))
+
+      // 기존 결정적 배치(5, 35, 65, 95)와 달라야 함
+      expect(lefts).not.toEqual([5, 35, 65, 95])
+
+      // 모든 left 값이 서로 다름 (Math.random이 서로 다른 값을 반환했으므로)
+      const unique = new Set(lefts)
+      expect(unique.size).toBe(lefts.length)
+
+      // 각 left는 0~100% 범위
+      lefts.forEach(l => {
+        expect(l).toBeGreaterThanOrEqual(0)
+        expect(l).toBeLessThanOrEqual(100)
+      })
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('카드의 left 위치는 입력 중 재렌더돼도 변하지 않는다', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    try {
+      render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+      const before = screen.getAllByTestId('falling-card').map(c => (c as HTMLElement).style.left)
+
+      // 관련 없는 타이핑으로 재렌더 유발
+      await user.keyboard('z')
+
+      const after = screen.getAllByTestId('falling-card').map(c => (c as HTMLElement).style.left)
+
+      expect(after).toEqual(before)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('인접 카드 간 left 간격이 최소 15%를 유지한다 (충돌 회피)', () => {
+    // Math.random이 일부러 첫 값 이후 근접값을 돌려주게 스텁 → 충돌 회피가 없으면 겹침.
+    // 시퀀스: 0.5, 0.505 (거의 같음 → 스킵돼야 함), 0.505 (스킵), 0.2, 0.9, 0.3...
+    const seq = [0.5, 0.505, 0.501, 0.2, 0.9, 0.3, 0.7, 0.1]
+    let i = 0
+    vi.spyOn(Math, 'random').mockImplementation(() => {
+      const v = seq[i % seq.length]
+      i++
+      return v
+    })
+    try {
+      render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+      const cards = screen.getAllByTestId('falling-card')
+      const lefts = cards.slice(0, 4).map(c => parseFloat((c as HTMLElement).style.left))
+
+      // 모든 두 카드 쌍 사이 간격이 최소 15% 이상
+      for (let a = 0; a < lefts.length; a++) {
+        for (let b = a + 1; b < lefts.length; b++) {
+          expect(Math.abs(lefts[a] - lefts[b])).toBeGreaterThanOrEqual(15)
+        }
+      }
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})

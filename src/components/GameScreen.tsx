@@ -36,7 +36,7 @@ function getAnswer(card: Card, mode: GameConfig['inputMode']): string {
 export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const { cards, sessionSize, inputMode, difficulty, hp: initialHp = 5 } = config
 
-  const sessionRef = useRef(createSession(cards, { sessionSize }))
+  const sessionRef = useRef(createSession(cards, { sessionSize, shuffle: config.shuffle }))
   const session = sessionRef.current
 
   const slotCount = SLOT_COUNT[difficulty] ?? 4
@@ -69,6 +69,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const fallTimersRef = useRef<Map<string, number>>(new Map())
   const submitTimerRef = useRef<number | null>(null)
   const pendingSubmitRef = useRef(false)
+  const cardLeftRef = useRef<Map<string, number>>(new Map())
 
   const resetInput = useCallback(() => {
     setInput('')
@@ -396,7 +397,30 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
         {visibleCards.map((card, i) => {
           const answer = getAnswer(card, inputMode)
           const highlighted = input.length > 0 && isPrefixMatch(input, card, inputMode)
-          const leftPct = 5 + (i * (90 / Math.max(slotCount - 1, 1)))
+          const cardKey = getCardKey(card)
+          // slotCount가 많을수록 확보 가능한 최소 간격이 줄어듦. 2~4슬롯은 15% 유지, 6슬롯은 ~11%.
+          const MIN_GAP = Math.min(15, Math.max(10, Math.floor(90 / (slotCount * 1.3))))
+          let leftPct = cardLeftRef.current.get(cardKey)
+          if (leftPct === undefined) {
+            const others = visibleCards
+              .filter(c => getCardKey(c) !== cardKey)
+              .map(c => cardLeftRef.current.get(getCardKey(c)))
+              .filter((v): v is number => v !== undefined)
+            const minDistTo = (pos: number) =>
+              others.length ? Math.min(...others.map(o => Math.abs(o - pos))) : Infinity
+            let best = 5 + Math.random() * 90
+            let bestDist = minDistTo(best)
+            for (let attempt = 1; attempt < 20 && bestDist < MIN_GAP; attempt++) {
+              const cand = 5 + Math.random() * 90
+              const dist = minDistTo(cand)
+              if (dist > bestDist) {
+                best = cand
+                bestDist = dist
+              }
+            }
+            leftPct = best
+            cardLeftRef.current.set(cardKey, leftPct)
+          }
           const delay = i * 0.4
 
           return (

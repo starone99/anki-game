@@ -7,6 +7,7 @@ export interface GameConfig {
   sessionSize: number
   inputMode: InputMode
   difficulty: Difficulty
+  shuffle: boolean
   hp?: number
 }
 

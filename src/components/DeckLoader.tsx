@@ -114,6 +114,7 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
   const [sessionSize, setSessionSize] = useState(20)
   const [inputMode, setInputMode] = useState<InputMode>('romaji')
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
+  const [shuffle, setShuffle] = useState<boolean>(false)
   const [selectedBuiltinDeck, setSelectedBuiltinDeck] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -157,7 +158,7 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
 
   const handleStart = () => {
     if (!cards || loading) return
-    onStart({ cards, sessionSize, inputMode, difficulty })
+    onStart({ cards, sessionSize, inputMode, difficulty, shuffle })
   }
 
   const inputModeOptions: { label: string; value: InputMode }[] = [
@@ -281,6 +282,19 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Shuffle toggle */}
+        <div className="deck-loader__section">
+          <div className="deck-loader__label">카드 순서</div>
+          <label>
+            <input
+              type="checkbox"
+              checked={shuffle}
+              onChange={(e) => setShuffle(e.target.checked)}
+            />
+            랜덤 셔플
+          </label>
         </div>
 
         {/* Start button */}

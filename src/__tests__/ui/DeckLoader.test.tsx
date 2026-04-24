@@ -235,3 +235,40 @@ describe('DeckLoader — 설정 및 시작', () => {
     expect(config.difficulty).toBe('hard')
   })
 })
+
+describe('DeckLoader — 셔플 옵션', () => {
+  it('시작 시 기본값은 shuffle: false가 config에 포함된다', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    render(<DeckLoader onStart={onStart} />)
+
+    // 내장 덱 '히라가나' 프리셋 선택 (첫 번째 "히라가나" 버튼 = 내장 덱)
+    await user.click(screen.getAllByText('히라가나')[0])
+
+    // 시작 버튼
+    await user.click(screen.getByRole('button', { name: /시작/ }))
+
+    expect(onStart).toHaveBeenCalledTimes(1)
+    const cfg = onStart.mock.calls[0][0]
+    expect(cfg).toMatchObject({ shuffle: false })
+  })
+
+  it('셔플 토글 켜고 시작하면 config에 shuffle: true가 포함된다', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    render(<DeckLoader onStart={onStart} />)
+
+    // 프리셋 선택 (첫 번째 "히라가나" 버튼 = 내장 덱)
+    await user.click(screen.getAllByText('히라가나')[0])
+
+    // 셔플 토글 찾아서 클릭 (checkbox 또는 button) — name: /셔플/
+    const shuffleToggle = screen.getByRole('checkbox', { name: /셔플/ })
+    await user.click(shuffleToggle)
+    expect(shuffleToggle).toBeChecked()
+
+    await user.click(screen.getByRole('button', { name: /시작/ }))
+
+    const cfg = onStart.mock.calls[0][0]
+    expect(cfg).toMatchObject({ shuffle: true })
+  })
+})

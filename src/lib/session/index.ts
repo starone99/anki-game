@@ -2,6 +2,7 @@ import type { Card } from '../input'
 
 export interface SessionOptions {
   sessionSize: number
+  shuffle?: boolean
 }
 
 export interface Session {
@@ -21,7 +22,17 @@ export function createSession(cards: Card[], options: SessionOptions): Session {
   const sorted = cards
     .map((card, index) => ({ ...card, id: card.id ?? `session-${index}` }))
     .sort((a, b) => (a.due ?? 0) - (b.due ?? 0))
-  const queue: Card[] = sorted.slice(0, options.sessionSize)
+
+  let arranged = sorted
+  if (options.shuffle) {
+    arranged = [...sorted]
+    for (let i = arranged.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arranged[i], arranged[j]] = [arranged[j], arranged[i]]
+    }
+  }
+
+  const queue: Card[] = arranged.slice(0, options.sessionSize)
   const _reviewQueue: Card[] = []
 
   return {
