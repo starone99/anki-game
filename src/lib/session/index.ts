@@ -12,21 +12,29 @@ export interface Session {
   isComplete: () => boolean
 }
 
+function getCardKey(card: Card): string {
+  return card.id ?? `${card.word}\u001f${card.reading}\u001f${card.meanings.join('\u001e')}`
+}
+
 export function createSession(cards: Card[], options: SessionOptions): Session {
   // Sort by due ascending, then take sessionSize
-  const sorted = [...cards].sort((a, b) => (a.due ?? 0) - (b.due ?? 0))
+  const sorted = cards
+    .map((card, index) => ({ ...card, id: card.id ?? `session-${index}` }))
+    .sort((a, b) => (a.due ?? 0) - (b.due ?? 0))
   const queue: Card[] = sorted.slice(0, options.sessionSize)
   const _reviewQueue: Card[] = []
 
   return {
     remaining: () => [...queue],
     markCorrect: (card: Card) => {
-      const idx = queue.findIndex(c => c.word === card.word)
+      const key = getCardKey(card)
+      const idx = queue.findIndex(c => getCardKey(c) === key)
       if (idx !== -1) queue.splice(idx, 1)
     },
     markWrong: (card: Card) => {
       // Remove from current position
-      const idx = queue.findIndex(c => c.word === card.word)
+      const key = getCardKey(card)
+      const idx = queue.findIndex(c => getCardKey(c) === key)
       if (idx === -1) return
       queue.splice(idx, 1)
 
@@ -36,7 +44,7 @@ export function createSession(cards: Card[], options: SessionOptions): Session {
       queue.splice(insertAt, 0, card)
 
       // Add to reviewQueue if not already present
-      if (!_reviewQueue.find(c => c.word === card.word)) {
+      if (!_reviewQueue.find(c => getCardKey(c) === key)) {
         _reviewQueue.push(card)
       }
     },

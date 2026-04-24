@@ -87,13 +87,13 @@ export async function parseApkg(buffer: ArrayBuffer): Promise<Card[]> {
   }
 
   const cards: Card[] = []
-  for (const row of results[0].values) {
+  for (const [index, row] of results[0].values.entries()) {
     const flds = row[0] as string
     const parts = flds.split('\x1f')
     if (parts.length >= 2) {
       const card = extractCardFields({ front: parts[0], back: parts[1] })
       if (card.word) {
-        cards.push(card)
+        cards.push({ ...card, id: `note-${index}` })
       }
     }
   }

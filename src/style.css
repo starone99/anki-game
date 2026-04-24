@@ -203,6 +203,12 @@ body::before {
   border-bottom: 1px solid var(--border);
 }
 
+.deck-loader__hint {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
 .deck-loader__builtin-btns {
   display: flex;
   gap: 8px;
@@ -388,6 +394,17 @@ body::before {
   overflow: hidden;
 }
 
+.danger-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  border-top: 1px solid rgba(255, 45, 120, 0.45);
+  background: linear-gradient(180deg, rgba(255, 45, 120, 0), rgba(255, 45, 120, 0.1));
+  pointer-events: none;
+}
+
 /* ── 낙하 카드 ── */
 @keyframes fall {
   from { transform: translateY(-120px); }
@@ -560,6 +577,51 @@ body::before {
 }
 
 /* ── ResultScreen ── */
+@media (pointer: coarse), (max-width: 768px) {
+  .game-screen {
+    min-height: 100dvh;
+  }
+
+  .game-hud {
+    padding: 12px 16px;
+  }
+
+  .input-hud {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .input-display {
+    display: none;
+  }
+
+  .game-keyboard-input {
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    padding: 0 12px;
+    background: var(--bg-2);
+    color: var(--cyan);
+    font-family: var(--font-display);
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    outline: none;
+  }
+
+  .game-keyboard-input:focus {
+    border-color: var(--cyan);
+    box-shadow: var(--cyan-glow);
+  }
+
+  .input-hint {
+    width: 100%;
+  }
+}
+
 .result-screen {
   min-height: 100svh;
   display: flex;
@@ -704,4 +766,11 @@ body::before {
   font-size: 13px;
   color: var(--text);
   text-align: right;
+}
+
+.result-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
 }

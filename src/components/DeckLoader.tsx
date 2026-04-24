@@ -110,22 +110,34 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
   const [cards, setCards] = useState<Card[] | null>(null)
   const [cardCount, setCardCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const [sessionSize, setSessionSize] = useState(20)
   const [inputMode, setInputMode] = useState<InputMode>('romaji')
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
+  const [selectedBuiltinDeck, setSelectedBuiltinDeck] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (file: File) => {
     setError(null)
-    if (!file.name.endsWith('.apkg')) {
+    if (!file.name.toLowerCase().endsWith('.apkg')) {
       setError('.apkg 파일만 지원합니다')
       return
     }
-    const buffer = await file.arrayBuffer()
-    const parsed = await parseApkg(buffer)
-    setCards(parsed)
-    setCardCount(parsed.length)
+    setLoading(true)
+    try {
+      const buffer = await file.arrayBuffer()
+      const parsed = await parseApkg(buffer)
+      setCards(parsed)
+      setCardCount(parsed.length)
+      setSelectedBuiltinDeck(null)
+    } catch (err) {
+      setCards(null)
+      setCardCount(null)
+      setError(err instanceof Error ? err.message : '덱을 읽는 중 오류가 발생했습니다')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -136,14 +148,15 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
     await handleFileSelect(file)
   }
 
-  const handleBuiltinDeck = (deckCards: Card[]) => {
-    setCards(deckCards)
+  const handleBuiltinDeck = (deckId: string, deckCards: Card[]) => {
+    setCards(deckCards.map((card, index) => ({ ...card, id: card.id ?? `${deckId}-${index}` })))
     setCardCount(deckCards.length)
     setError(null)
+    setSelectedBuiltinDeck(deckId)
   }
 
   const handleStart = () => {
-    if (!cards) return
+    if (!cards || loading) return
     onStart({ cards, sessionSize, inputMode, difficulty })
   }
 
@@ -153,6 +166,13 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
     { label: '히라가나', value: 'hiragana' },
     { label: '의미', value: 'meaning' },
   ]
+
+  const inputModeExample: Record<InputMode, string> = {
+    romaji: 'Example: taberu',
+    'korean-pronunciation': 'Example: 타베루',
+    hiragana: 'Example: たべる',
+    meaning: 'Example: 먹다',
+  }
 
   const difficultyOptions: { label: string; value: Difficulty }[] = [
     { label: '쉬움', value: 'easy' },
@@ -172,9 +192,9 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
         <div className="deck-loader__section">
           <div className="deck-loader__label">내장 덱</div>
           <div className="deck-loader__builtin-btns">
-            <button className={`btn${cards && cardCount === HIRAGANA_CARDS.length ? ' active' : ''}`} onClick={() => handleBuiltinDeck(HIRAGANA_CARDS)}>히라가나</button>
-            <button className={`btn${cards && cardCount === KATAKANA_CARDS.length ? ' active' : ''}`} onClick={() => handleBuiltinDeck(KATAKANA_CARDS)}>가타카나</button>
-            <button className="btn" onClick={() => handleBuiltinDeck([...HIRAGANA_CARDS, ...KATAKANA_CARDS])}>
+            <button className={`btn${selectedBuiltinDeck === 'hiragana' ? ' active' : ''}`} onClick={() => handleBuiltinDeck('hiragana', HIRAGANA_CARDS)}>히라가나</button>
+            <button className={`btn${selectedBuiltinDeck === 'katakana' ? ' active' : ''}`} onClick={() => handleBuiltinDeck('katakana', KATAKANA_CARDS)}>가타카나</button>
+            <button className={`btn${selectedBuiltinDeck === 'mixed' ? ' active' : ''}`} onClick={() => handleBuiltinDeck('mixed', [...HIRAGANA_CARDS, ...KATAKANA_CARDS])}>
               히라가나 + 가타카나
             </button>
           </div>
@@ -224,6 +244,7 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
               </button>
             ))}
           </div>
+          <div className="deck-loader__hint">{inputModeExample[inputMode]}</div>
         </div>
 
         {/* Session size slider */}
@@ -264,7 +285,7 @@ export function DeckLoader({ onStart }: Props): React.JSX.Element {
 
         {/* Start button */}
         <div className="deck-loader__start">
-          <button className="btn-primary" onClick={handleStart} disabled={cards === null}>
+          <button className="btn-primary" onClick={handleStart} disabled={cards === null || loading}>
             시작
           </button>
         </div>

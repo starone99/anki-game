@@ -1,6 +1,7 @@
 export type InputMode = 'romaji' | 'korean-pronunciation' | 'hiragana' | 'meaning'
 
 export interface Card {
+  id?: string
   word: string
   reading: string
   meanings: string[]

@@ -28,12 +28,23 @@ export function App(): React.JSX.Element {
     setScreen('load')
   }
 
+  const handleReviewWrong = () => {
+    if (!config || !result || result.wrongCards.length === 0) return
+    setConfig({
+      ...config,
+      cards: result.wrongCards,
+      sessionSize: result.wrongCards.length,
+    })
+    setResult(null)
+    setScreen('game')
+  }
+
   if (screen === 'game' && config) {
     return <GameScreen config={config} onComplete={handleComplete} />
   }
 
   if (screen === 'result' && result) {
-    return <ResultScreen result={result} onRestart={handleRestart} />
+    return <ResultScreen result={result} onRestart={handleRestart} onReviewWrong={handleReviewWrong} />
   }
 
   return <DeckLoader onStart={handleStart} />

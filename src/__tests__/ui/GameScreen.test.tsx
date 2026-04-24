@@ -107,15 +107,50 @@ describe('GameScreen — 타이핑 입력', () => {
     expect(screen.queryAllByTestId('falling-card').find(c => c.getAttribute('data-word') === word)).toBeUndefined()
   })
 
-  it('오답 입력 후 Enter 시 HP가 감소한다', async () => {
+  it('입력이 비어 있을 때 Enter는 아무 동작도 하지 않는다', async () => {
     const user = userEvent.setup()
     render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
 
-    const initialHp = Number(screen.getByTestId('hp-bar').getAttribute('data-hp'))
+    const initialHp = screen.getByTestId('hp-bar').getAttribute('data-hp')
+    const initialCount = screen.getByTestId('card-count').textContent
 
-    await user.keyboard('zzzzzzzzz{Enter}')
+    const card = screen.getAllByTestId('falling-card')[0]
+    act(() => {
+      card.dispatchEvent(new Event('animationend', { bubbles: true }))
+    })
 
-    expect(Number(screen.getByTestId('hp-bar').getAttribute('data-hp'))).toBeLessThan(initialHp)
+    expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
+    expect(screen.getByTestId('card-count')).toHaveTextContent(initialCount ?? '')
+  })
+
+  it('정답 입력 후 Enter는 HP를 깎지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    const initialHp = screen.getByTestId('hp-bar').getAttribute('data-hp')
+    const firstCard = screen.getAllByTestId('falling-card')[0]
+    const answer = firstCard.getAttribute('data-answer')!
+
+    await user.keyboard(`${answer}{Enter}`)
+
+    expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
+  })
+
+  it('정답 카드가 사라져도 다른 카드의 lane은 유지된다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    const cards = screen.getAllByTestId('falling-card')
+    const secondWord = cards[1].getAttribute('data-word')
+    const secondLeft = cards[1].style.left
+    const answer = cards[0].getAttribute('data-answer')!
+
+    await user.keyboard(answer)
+
+    const sameSecondCard = screen
+      .getAllByTestId('falling-card')
+      .find(card => card.getAttribute('data-word') === secondWord)
+    expect(sameSecondCard).toHaveStyle({ left: secondLeft })
   })
 
   it('현재 입력 중인 텍스트가 표시된다', async () => {
@@ -160,6 +195,68 @@ describe('GameScreen — 타이핑 입력', () => {
 
     expect(screen.getByTestId('score')).toHaveTextContent('1')
     expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('submits the live input value on Enter even before React state catches up', () => {
+    render(
+      <GameScreen
+        config={makeConfig({
+          cards: [
+            { word: 'taberu', reading: 'taberu', meanings: ['eat'] },
+            { word: 'miru', reading: 'miru', meanings: ['see'] },
+          ],
+          sessionSize: 2,
+          inputMode: 'meaning',
+        })}
+        onComplete={vi.fn()}
+      />,
+    )
+
+    const input = screen.getByLabelText('Game input')
+    fireEvent.keyDown(input, { key: 'Enter', target: { value: 'eat' } })
+
+    expect(screen.getByTestId('score')).toHaveTextContent('1')
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('Backspace works when focus is on the game screen fallback handler', () => {
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+    const gameScreen = document.querySelector('.game-screen') as HTMLElement
+    gameScreen.focus()
+
+    fireEvent.keyDown(gameScreen, { key: 'a' })
+    fireEvent.keyDown(gameScreen, { key: 'b' })
+    fireEvent.keyDown(gameScreen, { key: 'Backspace' })
+
+    expect(screen.getByTestId('current-input')).toHaveTextContent('a')
+  })
+
+  it('정답 처리된 카드의 늦은 낙하 종료 이벤트는 HP를 깎지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    const initialHp = screen.getByTestId('hp-bar').getAttribute('data-hp')
+    const firstCard = screen.getAllByTestId('falling-card')[0]
+    const answer = firstCard.getAttribute('data-answer')!
+
+    await user.keyboard(answer)
+    fireEvent.animationEnd(firstCard, { animationName: 'fall' })
+
+    expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
+  })
+
+  it('정답 직후 같은 순간에 도착한 다른 카드 낙하 종료는 HP를 깎지 않는다', async () => {
+    const user = userEvent.setup()
+    render(<GameScreen config={makeConfig()} onComplete={vi.fn()} />)
+
+    const initialHp = screen.getByTestId('hp-bar').getAttribute('data-hp')
+    const cards = screen.getAllByTestId('falling-card')
+    const answer = cards[0].getAttribute('data-answer')!
+
+    await user.keyboard(answer)
+    fireEvent.animationEnd(cards[1], { animationName: 'fall' })
+
+    expect(screen.getByTestId('hp-bar')).toHaveAttribute('data-hp', initialHp)
   })
 })
 
@@ -232,21 +329,26 @@ describe('GameScreen — 힌트 토글', () => {
 
 describe('GameScreen — 게임 종료', () => {
   it('HP가 0이 되면 onComplete가 호출된다', async () => {
-    const user = userEvent.setup()
+    vi.useFakeTimers()
     const onComplete = vi.fn()
     render(<GameScreen config={makeConfig({ hp: 1 } as GameConfig)} onComplete={onComplete} />)
 
-    await user.keyboard('zzzzz{Enter}')
-    await waitFor(() => expect(onComplete).toHaveBeenCalled(), { timeout: 2000 })
+    act(() => {
+      vi.advanceTimersByTime(11000)
+    })
+    expect(onComplete).toHaveBeenCalled()
+    vi.useRealTimers()
   })
 
   it('onComplete 호출 시 GameResult가 전달된다', async () => {
-    const user = userEvent.setup()
+    vi.useFakeTimers()
     const onComplete = vi.fn()
     render(<GameScreen config={makeConfig({ hp: 1 } as GameConfig)} onComplete={onComplete} />)
 
-    await user.keyboard('zzzzz{Enter}')
-    await waitFor(() => expect(onComplete).toHaveBeenCalled(), { timeout: 2000 })
+    act(() => {
+      vi.advanceTimersByTime(11000)
+    })
+    expect(onComplete).toHaveBeenCalled()
 
     const result = onComplete.mock.calls[0][0]
     expect(result).toMatchObject({
@@ -254,6 +356,7 @@ describe('GameScreen — 게임 종료', () => {
       correctCount: expect.any(Number),
       wrongCards: expect.any(Array),
     })
+    vi.useRealTimers()
   })
 })
 

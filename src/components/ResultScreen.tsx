@@ -4,11 +4,17 @@ import type { GameResult } from '../types'
 interface Props {
   result: GameResult
   onRestart: () => void
+  onReviewWrong?: () => void
 }
 
-export function ResultScreen({ result, onRestart }: Props): React.JSX.Element {
+function getCardKey(card: GameResult['wrongCards'][number]): string {
+  return card.id ?? `${card.word}\u001f${card.reading}\u001f${card.meanings.join('\u001e')}`
+}
+
+export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React.JSX.Element {
   const { score, correctCount, totalCount, wrongCards } = result
-  const accuracy = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100)
+  const firstPassCorrect = Math.max(0, totalCount - wrongCards.length)
+  const accuracy = totalCount === 0 ? 0 : Math.round((firstPassCorrect / totalCount) * 100)
 
   return (
     <div className="result-screen">
@@ -39,7 +45,7 @@ export function ResultScreen({ result, onRestart }: Props): React.JSX.Element {
             <div className="wrong-cards__title">MISSED CARDS</div>
             <div className="wrong-cards__list" data-testid="wrong-cards-list">
               {wrongCards.map((card) => (
-                <div key={card.word} className="wrong-card" data-testid="wrong-card-item">
+                <div key={getCardKey(card)} className="wrong-card" data-testid="wrong-card-item">
                   <span className="wrong-card__word">{card.word}</span>
                   <span className="wrong-card__reading">{card.reading}</span>
                   <span className="wrong-card__meaning">{card.meanings[0]}</span>
@@ -49,7 +55,12 @@ export function ResultScreen({ result, onRestart }: Props): React.JSX.Element {
           </div>
         )}
 
-        <button className="btn-primary" onClick={onRestart}>다시하기</button>
+        <div className="result-actions">
+          {wrongCards.length > 0 && onReviewWrong && (
+            <button className="btn-primary" onClick={onReviewWrong}>Review Missed</button>
+          )}
+          <button className="btn-primary" onClick={onRestart}>다시하기</button>
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 reference/
 spec.md
 .claude/
+.codex/
 
 # Logs
 logs

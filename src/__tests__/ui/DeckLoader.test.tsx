@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DeckLoader } from '../../components/DeckLoader'
+import { parseApkg } from '../../lib/parser'
 import type { GameConfig } from '../../types'
 
 // parseApkg를 mock — 실제 파일 파싱은 parser 테스트에서 검증
@@ -52,6 +53,34 @@ describe('DeckLoader — 렌더링', () => {
   it('덱 로드 전에는 시작 버튼이 비활성화된다', () => {
     render(<DeckLoader onStart={vi.fn()} />)
     expect(screen.getByRole('button', { name: /시작/i })).toBeDisabled()
+  })
+})
+
+describe('DeckLoader file loading resilience', () => {
+  it('accepts uppercase .APKG files', async () => {
+    render(<DeckLoader onStart={vi.fn()} />)
+    const dropzone = screen.getByTestId('dropzone')
+    const file = new File(['dummy'], 'TEST.APKG', { type: 'application/octet-stream' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/2/)).toBeInTheDocument()
+    })
+  })
+
+  it('shows an error when parsing fails', async () => {
+    vi.mocked(parseApkg).mockRejectedValueOnce(new Error('bad deck'))
+    render(<DeckLoader onStart={vi.fn()} />)
+    const dropzone = screen.getByTestId('dropzone')
+    const file = new File(['dummy'], 'broken.apkg', { type: 'application/octet-stream' })
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText(/bad deck/i)).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /시작|start/i })).toBeDisabled()
   })
 })
 
@@ -127,6 +156,22 @@ describe('DeckLoader — 내장 덱', () => {
 
     await user.click(screen.getByText('가타카나'))
     expect(screen.getByRole('button', { name: /시작/i })).toBeEnabled()
+  })
+
+  it('클릭한 내장 덱 버튼만 활성화된다', async () => {
+    const user = userEvent.setup()
+    render(<DeckLoader onStart={vi.fn()} />)
+
+    const hiraganaButton = screen.getAllByText('히라가나')[0]
+    const katakanaButton = screen.getByText('가타카나')
+
+    await user.click(hiraganaButton)
+    expect(hiraganaButton).toHaveClass('active')
+    expect(katakanaButton).not.toHaveClass('active')
+
+    await user.click(katakanaButton)
+    expect(hiraganaButton).not.toHaveClass('active')
+    expect(katakanaButton).toHaveClass('active')
   })
 })
 

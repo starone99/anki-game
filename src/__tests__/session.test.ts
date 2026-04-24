@@ -84,6 +84,20 @@ describe('session.markCorrect', () => {
     session.markCorrect(card)
     expect(session.remaining().length).toBe(before - 1)
   })
+  it('cards with the same word are tracked independently', () => {
+    const session = createSession([
+      { word: '同じ', reading: 'おなじ', meanings: ['same one'], due: 0 },
+      { word: '同じ', reading: 'どうじ', meanings: ['same two'], due: 1 },
+      { word: '別', reading: 'べつ', meanings: ['other'], due: 2 },
+    ], { sessionSize: 3 })
+
+    const first = session.remaining()[0]
+    session.markCorrect(first)
+
+    const remainingSameWords = session.remaining().filter(card => card.word === '同じ')
+    expect(remainingSameWords).toHaveLength(1)
+    expect(remainingSameWords[0].reading).toBe('どうじ')
+  })
 })
 
 describe('session.isComplete', () => {

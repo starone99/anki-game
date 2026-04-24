@@ -30,8 +30,8 @@ describe('ResultScreen — 렌더링', () => {
     expect(screen.getByTestId('result-accuracy')).toHaveTextContent('80%')
   })
 
-  it('정답률 계산: correctCount / totalCount', () => {
-    render(<ResultScreen result={makeResult({ correctCount: 3, totalCount: 4 })} onRestart={vi.fn()} />)
+  it('정답률 계산: first-pass correct cards / totalCount', () => {
+    render(<ResultScreen result={makeResult({ correctCount: 4, totalCount: 4, wrongCards: [{ word: '誤答', reading: 'ごとう', meanings: ['wrong'] }] })} onRestart={vi.fn()} />)
     expect(screen.getByTestId('result-accuracy')).toHaveTextContent('75%')
   })
 
@@ -63,6 +63,11 @@ describe('ResultScreen — 렌더링', () => {
     render(<ResultScreen result={makeResult()} onRestart={vi.fn()} />)
     expect(screen.getByRole('button', { name: /다시하기/i })).toBeInTheDocument()
   })
+
+  it('틀린 카드가 있으면 복습 버튼이 렌더링된다', () => {
+    render(<ResultScreen result={makeResult()} onRestart={vi.fn()} onReviewWrong={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /review missed/i })).toBeInTheDocument()
+  })
 })
 
 // ── 상호작용 ──
@@ -76,6 +81,16 @@ describe('ResultScreen — 상호작용', () => {
     await user.click(screen.getByRole('button', { name: /다시하기/i }))
 
     expect(onRestart).toHaveBeenCalledOnce()
+  })
+
+  it('복습 버튼 클릭 시 onReviewWrong이 호출된다', async () => {
+    const user = userEvent.setup()
+    const onReviewWrong = vi.fn()
+    render(<ResultScreen result={makeResult()} onRestart={vi.fn()} onReviewWrong={onReviewWrong} />)
+
+    await user.click(screen.getByRole('button', { name: /review missed/i }))
+
+    expect(onReviewWrong).toHaveBeenCalledOnce()
   })
 })
 
