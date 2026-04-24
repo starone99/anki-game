@@ -1,5 +1,6 @@
 import type React from 'react'
 import type { GameResult } from '../types'
+import { toCsv, toPrintableHtml } from '../lib/export'
 
 interface Props {
   result: GameResult
@@ -15,6 +16,29 @@ export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React
   const { score, correctCount, totalCount, wrongCards } = result
   const firstPassCorrect = Math.max(0, totalCount - wrongCards.length)
   const accuracy = totalCount === 0 ? 0 : Math.round((firstPassCorrect / totalCount) * 100)
+
+  const handleCsvDownload = (): void => {
+    const csv = toCsv(wrongCards)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'missed-cards.csv'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handlePrint = (): void => {
+    const html = toPrintableHtml(wrongCards)
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+  }
 
   return (
     <div className="result-screen">
@@ -56,8 +80,14 @@ export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React
         )}
 
         <div className="result-actions">
-          {wrongCards.length > 0 && onReviewWrong && (
-            <button className="btn-primary" onClick={onReviewWrong}>Review Missed</button>
+          {wrongCards.length > 0 && (
+            <>
+              {onReviewWrong && (
+                <button className="btn-primary" onClick={onReviewWrong}>Review Missed</button>
+              )}
+              <button className="btn-primary" onClick={handleCsvDownload}>CSV 다운로드</button>
+              <button className="btn-primary" onClick={handlePrint}>PDF로 인쇄</button>
+            </>
           )}
           <button className="btn-primary" onClick={onRestart}>다시하기</button>
         </div>
