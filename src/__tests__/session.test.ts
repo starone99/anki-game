@@ -64,6 +64,16 @@ describe('session.markWrong', () => {
     const count = session.reviewQueue().filter(c => c.word === wrongCard.word).length
     expect(count).toBe(1)
   })
+  it('already removed cards are ignored by markWrong', () => {
+    const card = session.remaining()[0]
+    session.markCorrect(card)
+
+    const before = session.remaining()
+    session.markWrong(card)
+
+    expect(session.remaining()).toEqual(before)
+    expect(session.reviewQueue()).not.toContainEqual(card)
+  })
 })
 
 describe('session.markCorrect', () => {

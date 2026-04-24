@@ -60,6 +60,16 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
   const hiddenInputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
 
+  const resetInput = useCallback(() => {
+    setInput('')
+    inputRef.current = ''
+    if (hiddenInputRef.current) hiddenInputRef.current.value = ''
+  }, [])
+
+  const focusInput = useCallback(() => {
+    if (!gameOverRef.current) hiddenInputRef.current?.focus()
+  }, [])
+
   // sync refs
   useEffect(() => { hpRef.current = hp }, [hp])
   useEffect(() => { scoreRef.current = score }, [score])
@@ -91,8 +101,17 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
 
   // Keep hidden input focused
   useLayoutEffect(() => {
-    if (!gameOver) hiddenInputRef.current?.focus()
-  })
+    focusInput()
+  }, [focusInput, gameOver])
+
+  useEffect(() => {
+    window.addEventListener('pointerdown', focusInput)
+    window.addEventListener('focus', focusInput)
+    return () => {
+      window.removeEventListener('pointerdown', focusInput)
+      window.removeEventListener('focus', focusInput)
+    }
+  }, [focusInput])
 
   const tryMatch = useCallback((newInput: string) => {
     const currentVisible = visibleCardsRef.current
@@ -103,9 +122,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       correctCountRef.current += 1
       setScore(s => s + 1)
       setCorrectCount(c => c + 1)
-      setInput('')
-      inputRef.current = ''
-      if (hiddenInputRef.current) hiddenInputRef.current.value = ''
+      resetInput()
       const remaining = session.remaining()
       visibleCardsRef.current = remaining.slice(0, slotCount)
       setVisibleCards(remaining.slice(0, slotCount))
@@ -115,10 +132,48 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
         triggerComplete(false)
       }
     }
-  }, [inputMode, session, slotCount, triggerComplete])
+  }, [inputMode, resetInput, session, slotCount, triggerComplete])
+
+  const handleMissedCard = useCallback((card?: Card) => {
+    if (gameOverRef.current) return
+    if (!card || !session.remaining().some(c => c.word === card.word)) return
+
+    session.markWrong(card)
+    wrongCardsRef.current = session.reviewQueue()
+
+    const newHp = hpRef.current - 1
+    hpRef.current = newHp
+    setHp(newHp)
+    resetInput()
+
+    const remaining = session.remaining()
+    visibleCardsRef.current = remaining.slice(0, slotCount)
+    setVisibleCards(remaining.slice(0, slotCount))
+
+    if (newHp <= 0) triggerComplete(true)
+  }, [resetInput, session, slotCount, triggerComplete])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (gameOverRef.current) return
+
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      e.stopPropagation()
+      setHintVisible(v => !v)
+      return
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      handleMissedCard(visibleCardsRef.current[0])
+      return
+    }
+  }, [handleMissedCard])
+
+  const handleGlobalKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (gameOverRef.current) return
+    focusInput()
 
     if (e.key === 'Tab') {
       e.preventDefault()
@@ -127,40 +182,53 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
     }
 
     if (e.key === 'Enter') {
-      const newHp = hpRef.current - 1
-      hpRef.current = newHp
-      setHp(newHp)
-      setInput('')
-      inputRef.current = ''
-      if (hiddenInputRef.current) hiddenInputRef.current.value = ''
-      if (newHp <= 0) triggerComplete(true)
+      e.preventDefault()
+      handleMissedCard(visibleCardsRef.current[0])
       return
     }
-  }, [triggerComplete])
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (
+      e.target !== hiddenInputRef.current &&
+      e.key.length === 1 &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey &&
+      !isComposingRef.current
+    ) {
+      const newInput = inputRef.current + e.key
+      if (hiddenInputRef.current) hiddenInputRef.current.value = newInput
+      inputRef.current = newInput
+      setInput(newInput)
+      tryMatch(newInput)
+    }
+  }, [focusInput, handleMissedCard, tryMatch])
+
+  const handleCardFall = useCallback((card: Card) => {
+    handleMissedCard(card)
+  }, [handleMissedCard])
+
+  const handleInputValue = useCallback((newInput: string) => {
     if (gameOverRef.current) return
-    if (isComposingRef.current) return
-    const newInput = e.target.value
     inputRef.current = newInput
     setInput(newInput)
     tryMatch(newInput)
   }, [tryMatch])
+
+  const handleInput = useCallback((e: React.FormEvent<HTMLInputElement>) => {
+    handleInputValue(e.currentTarget.value)
+  }, [handleInputValue])
 
   const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
     isComposingRef.current = false
-    const newInput = (e.target as HTMLInputElement).value
-    inputRef.current = newInput
-    setInput(newInput)
-    tryMatch(newInput)
-  }, [tryMatch])
+    handleInputValue(e.currentTarget.value)
+  }, [handleInputValue])
 
   const fallDuration = difficulty === 'easy' ? 12 : difficulty === 'hard' ? 6 : 9
   const dangerThreshold = 0.75
   const inputError = input.length > 0 && !visibleCards.some(card => isPrefixMatch(input, card, inputMode))
 
   return (
-    <div className="game-screen">
+    <div className="game-screen" tabIndex={-1} onKeyDown={handleGlobalKeyDown}>
       {/* HUD */}
       <div className="game-hud">
         <div className="hud-block">
@@ -205,15 +273,30 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
               data-highlighted={highlighted ? 'true' : 'false'}
               style={{
                 left: `${leftPct}%`,
-                animationName: 'fall, card-danger',
-                animationDuration: `${fallDuration}s, ${fallDuration * (1 - dangerThreshold) * 0.5}s`,
-                animationTimingFunction: 'linear, ease-in-out',
-                animationFillMode: 'forwards, none',
-                animationDelay: `${delay}s, ${delay + fallDuration * dangerThreshold}s`,
-                animationIterationCount: '1, infinite',
-              } as React.CSSProperties}
+                animationName: 'fall',
+                animationDuration: `${fallDuration}s`,
+                animationTimingFunction: 'linear',
+                animationFillMode: 'forwards',
+                animationDelay: `${delay}s`,
+              }}
+              onAnimationEnd={(e) => {
+                if (e.currentTarget === e.target && e.animationName === 'fall') {
+                  handleCardFall(card)
+                }
+              }}
             >
-              <div className="falling-card__word">{card.word}</div>
+              <div
+                className="falling-card__word"
+                style={{
+                  animationName: 'card-spawn, card-danger',
+                  animationDuration: `0.3s, ${fallDuration * (1 - dangerThreshold) * 0.5}s`,
+                  animationTimingFunction: 'ease-out, ease-in-out',
+                  animationDelay: `0s, ${delay + fallDuration * dangerThreshold}s`,
+                  animationIterationCount: '1, infinite',
+                }}
+              >
+                {card.word}
+              </div>
               <div
                 className="falling-card__hint"
                 data-testid="reading-hint"
@@ -245,12 +328,13 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
       {/* Hidden input captures all keyboard input including IME/Korean */}
       <input
         ref={hiddenInputRef}
-        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+        autoFocus
+        className="game-keyboard-input"
         onKeyDown={handleKeyDown}
-        onChange={handleInputChange}
+        onInput={handleInput}
         onCompositionStart={() => { isComposingRef.current = true }}
         onCompositionEnd={handleCompositionEnd}
-        aria-hidden="true"
+        aria-label="Game input"
       />
     </div>
   )

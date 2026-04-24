@@ -27,7 +27,8 @@ export function createSession(cards: Card[], options: SessionOptions): Session {
     markWrong: (card: Card) => {
       // Remove from current position
       const idx = queue.findIndex(c => c.word === card.word)
-      if (idx !== -1) queue.splice(idx, 1)
+      if (idx === -1) return
+      queue.splice(idx, 1)
 
       // Reinsert 3-5 positions later (random between 3 and 5)
       const offset = 3 + Math.floor(Math.random() * 3) // 3, 4, or 5

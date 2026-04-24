@@ -547,6 +547,18 @@ body::before {
   text-transform: uppercase;
 }
 
+.game-keyboard-input {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}
+
 /* ── ResultScreen ── */
 .result-screen {
   min-height: 100svh;

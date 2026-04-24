@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, waitFor } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { GameScreen } from '../../components/GameScreen'
 import type { GameConfig } from '../../types'
@@ -136,6 +136,29 @@ describe('GameScreen — 타이핑 입력', () => {
 
     await user.keyboard(answer)
 
+    expect(screen.getByTestId('current-input')).toHaveTextContent('')
+  })
+
+  it('한글 IME 조합 중인 입력도 정답으로 처리한다', () => {
+    render(
+      <GameScreen
+        config={makeConfig({
+          cards: [
+            { word: '食べる', reading: 'たべる', meanings: ['먹다'] },
+            { word: '飲む', reading: 'のむ', meanings: ['마시다'] },
+          ],
+          sessionSize: 2,
+          inputMode: 'meaning',
+        })}
+        onComplete={vi.fn()}
+      />,
+    )
+
+    const input = screen.getByLabelText('Game input')
+    fireEvent.compositionStart(input)
+    fireEvent.input(input, { target: { value: '먹다' } })
+
+    expect(screen.getByTestId('score')).toHaveTextContent('1')
     expect(screen.getByTestId('current-input')).toHaveTextContent('')
   })
 })
