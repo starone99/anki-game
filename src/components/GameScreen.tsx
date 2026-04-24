@@ -208,7 +208,7 @@ export function GameScreen({ config, onComplete }: Props): React.JSX.Element {
                 animationName: 'fall, card-danger',
                 animationDuration: `${fallDuration}s, ${fallDuration * (1 - dangerThreshold) * 0.5}s`,
                 animationTimingFunction: 'linear, ease-in-out',
-                animationFillMode: 'forwards, both',
+                animationFillMode: 'forwards, none',
                 animationDelay: `${delay}s, ${delay + fallDuration * dangerThreshold}s`,
                 animationIterationCount: '1, infinite',
               } as React.CSSProperties}

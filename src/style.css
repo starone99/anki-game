@@ -390,9 +390,13 @@ body::before {
 
 /* ── 낙하 카드 ── */
 @keyframes fall {
-  from { transform: translateY(-120px); opacity: 0; }
-  5%   { opacity: 1; }
-  to   { transform: translateY(calc(100vh - 80px)); opacity: 1; }
+  from { transform: translateY(-120px); }
+  to   { transform: translateY(calc(100vh - 80px)); }
+}
+
+@keyframes card-spawn {
+  from { opacity: 0; scale: 0.85; }
+  to   { opacity: 1; scale: 1; }
 }
 
 @keyframes card-danger {
@@ -453,6 +457,7 @@ body::before {
 }
 
 .falling-card__word {
+  animation: card-spawn 0.3s ease-out;
   font-family: var(--font-jp);
   font-size: clamp(28px, 4vw, 44px);
   font-weight: 700;
