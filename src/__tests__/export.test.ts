@@ -109,6 +109,7 @@ describe('toPrintableHtml', () => {
     expect(html).toContain('<html')
     expect(html).toContain('<body')
     expect(html).not.toContain('"card"')
+    expect(html).toContain('틀린 카드가 없습니다')
   })
 
   it('단일 카드의 word/reading/meaning이 모두 반환 문자열에 포함된다', () => {

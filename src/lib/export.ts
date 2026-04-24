@@ -45,7 +45,7 @@ export function toPrintableHtml(cards: Card[]): string {
 
   const body =
     cards.length === 0
-      ? '<p class="empty">No missed items.</p>'
+      ? '<p class="empty">틀린 카드가 없습니다</p>'
       : `<ul class="items">${cards
           .map((c) => {
             const word = escapeHtml(c.word)

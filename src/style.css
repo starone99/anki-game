@@ -620,6 +620,16 @@ body::before {
   .input-hint {
     width: 100%;
   }
+
+  .btn-primary {
+    padding: 12px 20px;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+
+  .result-actions {
+    gap: 8px;
+  }
 }
 
 .result-screen {

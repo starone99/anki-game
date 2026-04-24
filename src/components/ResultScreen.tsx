@@ -19,11 +19,15 @@ export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React
 
   const handleCsvDownload = (): void => {
     const csv = toCsv(wrongCards)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'missed-cards.csv'
+    const today = new Date()
+    const yyyy = today.getFullYear()
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const dd = String(today.getDate()).padStart(2, '0')
+    a.download = `missed-cards-${yyyy}-${mm}-${dd}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -33,7 +37,10 @@ export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React
   const handlePrint = (): void => {
     const html = toPrintableHtml(wrongCards)
     const win = window.open('', '_blank')
-    if (!win) return
+    if (!win) {
+      alert('팝업이 차단되었습니다. 브라우저 설정을 확인해주세요.')
+      return
+    }
     win.document.write(html)
     win.document.close()
     win.focus()
@@ -83,7 +90,7 @@ export function ResultScreen({ result, onRestart, onReviewWrong }: Props): React
           {wrongCards.length > 0 && (
             <>
               {onReviewWrong && (
-                <button className="btn-primary" onClick={onReviewWrong}>Review Missed</button>
+                <button className="btn-primary" onClick={onReviewWrong}>틀린 카드 복습</button>
               )}
               <button className="btn-primary" onClick={handleCsvDownload}>CSV 다운로드</button>
               <button className="btn-primary" onClick={handlePrint}>PDF로 인쇄</button>

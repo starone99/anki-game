@@ -67,7 +67,7 @@ describe('ResultScreen — 렌더링', () => {
 
   it('틀린 카드가 있으면 복습 버튼이 렌더링된다', () => {
     render(<ResultScreen result={makeResult()} onRestart={vi.fn()} onReviewWrong={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /review missed/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /틀린 카드 복습/ })).toBeInTheDocument()
   })
 })
 
@@ -89,7 +89,7 @@ describe('ResultScreen — 상호작용', () => {
     const onReviewWrong = vi.fn()
     render(<ResultScreen result={makeResult()} onRestart={vi.fn()} onReviewWrong={onReviewWrong} />)
 
-    await user.click(screen.getByRole('button', { name: /review missed/i }))
+    await user.click(screen.getByRole('button', { name: /틀린 카드 복습/ }))
 
     expect(onReviewWrong).toHaveBeenCalledOnce()
   })
@@ -108,6 +108,7 @@ describe('ResultScreen — CSV 다운로드', () => {
     URL.createObjectURL = originalCreateObjectURL
     URL.revokeObjectURL = originalRevokeObjectURL
     HTMLAnchorElement.prototype.click = originalAnchorClick
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -146,7 +147,7 @@ describe('ResultScreen — CSV 다운로드', () => {
     expect(anchorClickSpy.mock.calls.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('Blob 내용이 toCsv(wrongCards)와 동일하다', async () => {
+  it('Blob 내용이 (BOM 제외하고) toCsv(wrongCards)와 동일하다', async () => {
     const user = userEvent.setup()
     const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
     URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL
@@ -160,7 +161,8 @@ describe('ResultScreen — CSV 다운로드', () => {
 
     const blob = createObjectURL.mock.calls[0][0] as Blob
     const text = await blob.text()
-    expect(text).toBe(toCsv(result.wrongCards))
+    // 파일 선두의 UTF-8 BOM은 Excel 호환을 위한 마커. 내용 동일성 비교에서는 제거.
+    expect(text.replace(/^﻿/, '')).toBe(toCsv(result.wrongCards))
   })
 
   it('다운로드 파일명에 .csv 확장자가 포함된다', async () => {
@@ -189,6 +191,64 @@ describe('ResultScreen — CSV 다운로드', () => {
     const download = anchorWithDownload!.getAttribute('download') ?? ''
     expect(download.length).toBeGreaterThan(0)
     expect(download.endsWith('.csv')).toBe(true)
+  })
+
+  it('다운로드되는 Blob은 UTF-8 BOM 바이트(EF BB BF)로 시작한다', async () => {
+    const user = userEvent.setup()
+    const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
+    URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL
+    URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    const result = makeResult()
+    render(<ResultScreen result={result} onRestart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /CSV/ }))
+
+    const blob = createObjectURL.mock.calls[0][0] as Blob
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    expect(bytes[0]).toBe(0xEF)
+    expect(bytes[1]).toBe(0xBB)
+    expect(bytes[2]).toBe(0xBF)
+
+    const expectedCsvBytes = new TextEncoder().encode(toCsv(result.wrongCards))
+    // 전체 바이트 = BOM 3바이트 + csv 바이트. 이중 BOM을 방지.
+    expect(bytes.length).toBe(3 + expectedCsvBytes.length)
+
+    // BOM 이후 실제 내용은 toCsv와 동일해야 한다 (BOM 3바이트 건너뛰고 UTF-8 디코딩).
+    const rest = new TextDecoder('utf-8').decode(bytes.slice(3))
+    expect(rest).toBe(toCsv(result.wrongCards))
+  })
+
+  it('다운로드 파일명에 YYYY-MM-DD 날짜가 포함된다', async () => {
+    // 실제 setTimeout 은 건드리지 않고 Date 만 고정 (userEvent 의 내부 타이머를 막지 않기 위함).
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-04-24T15:00:00'))
+
+    const user = userEvent.setup()
+    URL.createObjectURL = vi
+      .fn()
+      .mockReturnValue('blob:mock-url') as unknown as typeof URL.createObjectURL
+    URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    const createdAnchors: HTMLAnchorElement[] = []
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string, options?: ElementCreationOptions) => {
+      const el = originalCreateElement(tagName, options)
+      if (tagName.toLowerCase() === 'a') {
+        createdAnchors.push(el as HTMLAnchorElement)
+      }
+      return el
+    })
+
+    render(<ResultScreen result={makeResult()} onRestart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /CSV/ }))
+
+    const anchorWithDownload = createdAnchors.find((a) => a.hasAttribute('download'))
+    expect(anchorWithDownload).toBeTruthy()
+    const download = anchorWithDownload!.getAttribute('download')
+    expect(download).toBe('missed-cards-2026-04-24.csv')
   })
 })
 
@@ -249,6 +309,20 @@ describe('ResultScreen — PDF 인쇄', () => {
     await expect(
       user.click(screen.getByRole('button', { name: /인쇄/ })),
     ).resolves.not.toThrow()
+  })
+
+  it('window.open이 null이면 팝업 차단 안내 alert를 띄운다', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'open').mockReturnValue(null)
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
+
+    render(<ResultScreen result={makeResult()} onRestart={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /인쇄/ }))
+
+    expect(alertSpy).toHaveBeenCalledTimes(1)
+    const message = String(alertSpy.mock.calls[0][0] ?? '')
+    expect(message).toMatch(/팝업|차단|브라우저/)
   })
 })
 
