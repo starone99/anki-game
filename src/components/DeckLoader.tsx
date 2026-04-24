@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type React from 'react'
 import type { Card, InputMode } from '../lib/input'
 import type { Difficulty, GameConfig } from '../types'
 import { parseApkg } from '../lib/parser'
@@ -105,7 +106,7 @@ const KATAKANA_CARDS: Card[] = [
   { word: 'ン', reading: 'ン', meanings: ['응'] },
 ]
 
-export function DeckLoader({ onStart }: Props): JSX.Element {
+export function DeckLoader({ onStart }: Props): React.JSX.Element {
   const [cards, setCards] = useState<Card[] | null>(null)
   const [cardCount, setCardCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
